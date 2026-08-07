@@ -28,6 +28,9 @@ internal sealed class MainForm : Form
     private readonly TextBox log = new() { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, BackColor = Color.FromArgb(24, 24, 24), ForeColor = Color.Gainsboro, Font = new Font("Consolas", 9) };
     private readonly ActivityLog activityLog = new();
     private string lastPlaybackKey = string.Empty;
+    // A rapid polling cycle can observe the same exact next subtitle several
+    // times before the first prefetch has warmed its PCM. Queue it once.
+    private readonly HashSet<string> prefetchedSubtitleKeys = new(StringComparer.Ordinal);
     private bool busy;
     private bool isEnabled;
     private DateTime? noDialogueSinceUtc;
@@ -132,6 +135,7 @@ internal sealed class MainForm : Form
             {
                 lastSpokenTextKey = null;
                 lastSpokenNode = 0;
+                prefetchedSubtitleKeys.Clear();
                 unknownSpeakerGender = null;
                 pendingUnknownSpeakerNode = null;
                 UnregisterUnknownChoiceHotkeys();
@@ -233,7 +237,7 @@ internal sealed class MainForm : Form
             {
                 bool waitForCurrentCharacterContext = !suppressCurrent &&
                     string.Equals(currentProfile.CanonicalName, prefetchProfile.CanonicalName, StringComparison.OrdinalIgnoreCase);
-                _ = PrefetchAsync(prefetchCandidate, prefetchProfile, waitForCurrentCharacterContext);
+                QueuePrefetchOnce(prefetchCandidate, prefetchProfile, waitForCurrentCharacterContext);
             }
         }
         catch (Exception exception)
@@ -242,6 +246,13 @@ internal sealed class MainForm : Form
         }
         finally { busy = false; }
         return Task.CompletedTask;
+    }
+
+    private void QueuePrefetchOnce(SubtitleCandidate candidate, SpeakerProfile profile, bool waitForCurrentCharacterContext)
+    {
+        string key = string.Concat(profile.CanonicalName, "\u001f", profile.Voice, "\u001f", candidate.Text);
+        if (!prefetchedSubtitleKeys.Add(key)) return;
+        _ = PrefetchAsync(candidate, profile, waitForCurrentCharacterContext);
     }
 
     private async Task PrefetchAsync(SubtitleCandidate candidate, SpeakerProfile profile, bool waitForCurrentCharacterContext = false)

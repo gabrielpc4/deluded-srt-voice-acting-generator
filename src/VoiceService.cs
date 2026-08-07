@@ -143,7 +143,7 @@ internal sealed class VoiceService : IDisposable
         // Playback from an on-disk/memory cache is entirely local.  Restoring
         // the spoken line into the Realtime session is optional context work;
         // it must never make cached audio wait for a reachable network.
-        if (settings.OpenAi.PersistentSessions)
+        if (settings.OpenAi.PersistentSessions && !string.IsNullOrWhiteSpace(settings.OpenAi.ApiKey))
             _ = RecordCachedAudioContextAsync(lookup.Key, speaker, text, pcm, token);
 
         return Task.FromResult<byte[]?>(pcm);
