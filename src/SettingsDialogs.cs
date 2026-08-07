@@ -38,7 +38,17 @@ internal sealed class CastDialog : Form
         voice.Items.AddRange(["", "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse", "marin", "cedar"]);
         names.Items.AddRange(catalog.Seeds.OrderBy(seed => seed.CanonicalName).Cast<object>().ToArray()); names.DisplayMember = nameof(SpeakerSeed.CanonicalName); names.SelectedIndexChanged += (_, _) => LoadSeed();
         var right = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(12), ColumnCount = 1, RowCount = 7 }; right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.Controls.Add(new Label { Text = "Voice", AutoSize = true }, 0, 0); right.Controls.Add(voice, 0, 1); right.Controls.Add(new Label { Text = "Playback volume", AutoSize = true }, 0, 2); right.Controls.Add(volume, 0, 3); right.Controls.Add(new Label { Text = "Performance instructions", AutoSize = true, Margin = new Padding(0, 10, 0, 3) }, 0, 4); right.Controls.Add(instructions, 0, 5); Button save = new() { Text = "Save selected profile", AutoSize = true, Margin = new Padding(0, 10, 0, 0) }; save.Click += (_, _) => SaveSeed(); right.Controls.Add(save, 0, 6);
-        var split = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1, Panel1MinSize = 150, Panel2MinSize = 400 }; split.Panel1.Controls.Add(names); split.Panel2.Controls.Add(right); Controls.Add(split); Shown += (_, _) => split.SplitterDistance = Math.Clamp(split.ClientSize.Width / 5, 150, 230); if (names.Items.Count > 0) names.SelectedIndex = 0;
+        var split = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1 }; split.Panel1.Controls.Add(names); split.Panel2.Controls.Add(right); Controls.Add(split);
+        Shown += (_, _) =>
+        {
+            // SplitContainer validates min sizes immediately. Apply them only
+            // after WinForms has given the dialog its real DPI-scaled bounds.
+            split.Panel1MinSize = 150;
+            split.Panel2MinSize = 400;
+            int maximumLeftWidth = split.ClientSize.Width - split.SplitterWidth - split.Panel2MinSize;
+            split.SplitterDistance = Math.Clamp(split.ClientSize.Width / 5, split.Panel1MinSize, maximumLeftWidth);
+        };
+        if (names.Items.Count > 0) names.SelectedIndex = 0;
     }
     private SpeakerSeed? Selected => names.SelectedItem as SpeakerSeed;
     private void LoadSeed() { if (Selected is not { } seed) return; voice.SelectedItem = seed.PreferredVoice ?? ""; volume.Value = (decimal)Math.Clamp(seed.VolumeMultiplier ?? 1f, .25f, 2f); instructions.Text = seed.SpeechInstructions ?? ""; }
