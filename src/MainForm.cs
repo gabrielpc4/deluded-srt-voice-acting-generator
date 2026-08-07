@@ -2,11 +2,9 @@ using System.Text.Json;
 
 internal sealed class MainForm : Form
 {
-    private const int ToggleHotkeyId = 1;
     private const int UnknownMaleHotkeyId = 2;
     private const int UnknownFemaleHotkeyId = 3;
     private const int WmHotkey = 0x0312;
-    private const uint VirtualKeyF8 = 0x77;
     private const uint VirtualKeyM = 0x4D;
     private const uint VirtualKeyF = 0x46;
     private const int SubtitleStabilityMilliseconds = 100;
@@ -32,7 +30,6 @@ internal sealed class MainForm : Form
     // times before the first prefetch has warmed its PCM. Queue it once.
     private readonly HashSet<string> prefetchedSubtitleKeys = new(StringComparer.Ordinal);
     private bool busy;
-    private bool isEnabled;
     private DateTime? noDialogueSinceUtc;
     private bool dialogueContextCleared;
     private bool dialogueActive;
@@ -60,7 +57,6 @@ internal sealed class MainForm : Form
         this.settings = settings;
         this.settingsStore = settingsStore;
         this.speakers = speakers;
-        isEnabled = settings.Reader.Enabled;
         reader = new GameMemoryReader(settings.Reader.ProcessName);
         reader.Diagnostic += (_, message) => AppendLog(message);
         voice = new VoiceService(settings);
@@ -68,7 +64,6 @@ internal sealed class MainForm : Form
         ClientSize = new Size(1760, 720);
         MinimumSize = new Size(1000, 560);
         StartPosition = FormStartPosition.CenterScreen;
-        TopMost = settings.Reader.AlwaysOnTop;
 
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(14, 0, 14, 14), ColumnCount = 1, RowCount = 3 };
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -103,7 +98,7 @@ internal sealed class MainForm : Form
         timer.Interval = 1;
         timer.Tick += async (_, _) => await TickAsync();
         timer.Start();
-        FormClosed += (_, _) => { timer.Stop(); UnregisterUnknownChoiceHotkeys(); Native.UnregisterHotKey(Handle, ToggleHotkeyId); playback.Dispose(); reader.Dispose(); voice.Dispose(); };
+        FormClosed += (_, _) => { timer.Stop(); UnregisterUnknownChoiceHotkeys(); playback.Dispose(); reader.Dispose(); voice.Dispose(); };
         AppendLog($"Companion started. File log: {activityLog.CurrentPath}");
     }
 
@@ -113,13 +108,6 @@ internal sealed class MainForm : Form
         PollManualRecoveryInput(gameIsForeground);
         PollChoiceSelectionInput(gameIsForeground);
         if (busy) return Task.CompletedTask;
-        if (!isEnabled) return Task.CompletedTask;
-        if (settings.Reader.OnlyWhenGameFocused && !gameIsForeground)
-        {
-            // Prime the pointer when the companion has focus, but never read or narrate off-focus text.
-            reader.WarmUpDiscovery();
-            return Task.CompletedTask;
-        }
         busy = true;
         try
         {
@@ -227,7 +215,7 @@ internal sealed class MainForm : Form
                 else
                 {
                     bool applySubtitleStartDelay = currentStatus.State is AudioState.CacheHit or AudioState.Ready;
-                    AppendLog(DiagnosticEvent.Create("play.queued", ("node", snapshot.NodeId), ("speaker", currentProfile.CanonicalName), ("text", snapshot.Text), ("textHash", TextHash(snapshot.Text)), ("playbackKey", playbackKey), ("onlyWhenGameFocused", settings.Reader.OnlyWhenGameFocused), ("gameFocused", reader.IsGameWindowForeground()), ("subtitleStartDelayMilliseconds", applySubtitleStartDelay ? Math.Max(0, settings.Reader.SubtitleStartDelayMilliseconds) : 0), ("subtitleStartDelayApplied", applySubtitleStartDelay)));
+                    AppendLog(DiagnosticEvent.Create("play.queued", ("node", snapshot.NodeId), ("speaker", currentProfile.CanonicalName), ("text", snapshot.Text), ("textHash", TextHash(snapshot.Text)), ("playbackKey", playbackKey), ("subtitleStartDelayMilliseconds", applySubtitleStartDelay ? Math.Max(0, settings.Reader.SubtitleStartDelayMilliseconds) : 0), ("subtitleStartDelayApplied", applySubtitleStartDelay)));
                     _ = PlayCurrentAsync(snapshot, currentProfile, applySubtitleStartDelay);
                 }
             }
@@ -571,18 +559,7 @@ internal sealed class MainForm : Form
     private MenuStrip CreateMenus()
     {
         MenuStrip menu = new();
-        ToolStripMenuItem narration = new("Narration");
-        ToolStripMenuItem toggle = new("Enable / Disable (F8)");
-        toggle.Click += (_, _) => ToggleEnabled();
-        ToolStripMenuItem focus = new("Only when game is focused") { CheckOnClick = true, Checked = settings.Reader.OnlyWhenGameFocused };
-        focus.CheckedChanged += (_, _) => { settings.Reader.OnlyWhenGameFocused = focus.Checked; SaveSettings(); };
-        narration.DropDownItems.Add(toggle); narration.DropDownItems.Add(focus); menu.Items.Add(narration);
-
-        ToolStripMenuItem window = new("Window");
-        ToolStripMenuItem topmost = new("Always on top") { CheckOnClick = true, Checked = TopMost };
-        topmost.CheckedChanged += (_, _) => { TopMost = topmost.Checked; settings.Reader.AlwaysOnTop = TopMost; SaveSettings(); };
-        window.DropDownItems.Add(topmost); menu.Items.Add(window);
-        ToolStripMenuItem settingsMenu = new("Settings");
+        ToolStripMenuItem settingsMenu = new("Configure");
         ToolStripMenuItem voiceSettings = new("Voice and reader settings...");
         voiceSettings.Click += (_, _) => { using SettingsDialog dialog = new(settings, settingsStore); if (dialog.ShowDialog(this) == DialogResult.OK) { timer.Interval = 1; speakers.RebuildLookup(); AppendLog("Settings saved."); } };
         ToolStripMenuItem castSettings = new("Cast voice profiles...");
@@ -592,18 +569,6 @@ internal sealed class MainForm : Form
         return menu;
     }
 
-    private void ToggleEnabled()
-    {
-        isEnabled = !isEnabled; settings.Reader.Enabled = isEnabled; SaveSettings();
-        if (!isEnabled) playback.Stop();
-        AppendLog(isEnabled ? "Narration enabled." : "Narration disabled.");
-    }
-    private void SaveSettings() { try { settingsStore.Save(settings); } catch (Exception exception) { AppendLog(exception.Message); } }
-    protected override void OnHandleCreated(EventArgs e)
-    {
-        base.OnHandleCreated(e);
-        if (!Native.RegisterHotKey(Handle, ToggleHotkeyId, 0, VirtualKeyF8)) AppendLog("Could not register global F8 narration toggle.");
-    }
     private void RegisterUnknownChoiceHotkeys()
     {
         if (!Native.RegisterHotKey(Handle, UnknownMaleHotkeyId, 0, VirtualKeyM)) AppendLog("Could not register global M unknown-speaker choice.");
@@ -616,8 +581,7 @@ internal sealed class MainForm : Form
     }
     protected override void WndProc(ref Message m)
     {
-        if (m.Msg == WmHotkey && m.WParam.ToInt32() == ToggleHotkeyId) ToggleEnabled();
-        else if (m.Msg == WmHotkey && m.WParam.ToInt32() == UnknownMaleHotkeyId) TryChooseUnknownSpeakerGender(SpeakerGender.Male, "global_hotkey");
+        if (m.Msg == WmHotkey && m.WParam.ToInt32() == UnknownMaleHotkeyId) TryChooseUnknownSpeakerGender(SpeakerGender.Male, "global_hotkey");
         else if (m.Msg == WmHotkey && m.WParam.ToInt32() == UnknownFemaleHotkeyId) TryChooseUnknownSpeakerGender(SpeakerGender.Female, "global_hotkey");
         base.WndProc(ref m);
     }

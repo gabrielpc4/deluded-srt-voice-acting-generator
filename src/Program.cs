@@ -57,5 +57,5 @@ internal static class ApiKeyStore
 }
 
 internal sealed class Settings { public OpenAiSettings OpenAi { get; set; } = new(); public ReaderSettings Reader { get; set; } = new(); }
-internal sealed class ReaderSettings { public string ProcessName { get; set; } = "SRTE-Win64-Shipping.exe"; public bool Enabled { get; set; } = true; public bool OnlyWhenGameFocused { get; set; } = false; public bool AlwaysOnTop { get; set; } = true; public int SubtitleStartDelayMilliseconds { get; set; } = 250; }
+internal sealed class ReaderSettings { public string ProcessName { get; set; } = "SRTE-Win64-Shipping.exe"; public int SubtitleStartDelayMilliseconds { get; set; } = 250; }
 internal sealed class OpenAiSettings { public string ApiKey { get; set; } = ""; public string RealtimeModel { get; set; } = "gpt-realtime-1.5"; public string AlisaVoice { get; set; } = "marin"; public string UnknownVoice { get; set; } = "cedar"; public double SpeechSpeed { get; set; } = 1.0; public string Instructions { get; set; } = "Speak naturally and clearly."; public List<string> FemaleVoices { get; set; } = ["marin", "shimmer", "coral", "sage"]; public List<string> MaleVoices { get; set; } = ["cedar", "echo", "ash", "alloy", "verse", "ballad"]; public bool PersistentSessions { get; set; } = true; }
