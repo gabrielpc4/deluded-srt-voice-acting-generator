@@ -31,7 +31,7 @@ internal sealed class CharacterPreviewLineCatalog
         ["Chair"] = "What are you looking at? Can't you see I'm exhausted? I can't move my legs.",
         ["David"] = "Where do you live, girl?",
         ["Robert"] = "What are you trying to achieve?",
-        ["Driver"] = "Girl? Can you hear me? Help me remember what I'm doing here!",
+        ["Driver"] = "It's hard enough to get a man to tip you, isn't it? I'll pay when we get there...",
         ["Librarian"] = "Wonderful! Then I can introduce myself too. My name is Cruella Castellier; you can just call me Cruella."
     };
 

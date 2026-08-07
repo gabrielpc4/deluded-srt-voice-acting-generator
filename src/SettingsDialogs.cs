@@ -7,7 +7,13 @@ internal sealed class SettingsDialog : Form
     private readonly ComboBox alisa = VoiceCombo();
     private readonly ComboBox unknown = VoiceCombo();
     private readonly TextBox instructions = new() { Dock = DockStyle.Fill, Multiline = true, Height = 80 };
-    private readonly CheckBox persistentSessions = new() { Text = "Reuse GA Realtime sessions by voice", AutoSize = true };
+    private readonly CheckBox persistentSessions = new()
+    {
+        Text = "Send the entire conversation to AI on every request\r\n(Increases tone consistency for the next sentence, but it also increases the chances of AI refusing if it infers inappropriate content.)",
+        AutoSize = false,
+        Dock = DockStyle.Fill,
+        Height = 42
+    };
 
     public SettingsDialog(Settings settings, SettingsStore store)
     {
@@ -16,7 +22,7 @@ internal sealed class SettingsDialog : Form
         model.Text = settings.OpenAi.RealtimeModel; speed.Value = (decimal)settings.OpenAi.SpeechSpeed; alisa.SelectedItem = settings.OpenAi.AlisaVoice; unknown.SelectedItem = settings.OpenAi.UnknownVoice; instructions.Text = settings.OpenAi.Instructions; persistentSessions.Checked = settings.OpenAi.PersistentSessions;
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(12), ColumnCount = 2, RowCount = 7 };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190)); layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        Add(layout, 0, "Realtime model", model); Add(layout, 1, "Speech speed", speed); Add(layout, 2, "Alisa voice", alisa); Add(layout, 3, "Unknown voice", unknown); Add(layout, 4, "Default instructions", instructions); layout.Controls.Add(persistentSessions, 1, 5);
+        Add(layout, 0, "Realtime model", model); Add(layout, 1, "Speech speed", speed); Add(layout, 2, "Alisa voice", alisa); Add(layout, 3, "Unknown voice", unknown); Add(layout, 4, "Default instructions", instructions); layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48)); layout.Controls.Add(persistentSessions, 1, 5);
         Button save = new() { Text = "Save", DialogResult = DialogResult.OK, AutoSize = true }; Button cancel = new() { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true }; var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft }; buttons.Controls.Add(save); buttons.Controls.Add(cancel); layout.Controls.Add(buttons, 1, 6); Controls.Add(layout); AcceptButton = save; CancelButton = cancel;
         save.Click += (_, _) => { settings.OpenAi.RealtimeModel = model.Text.Trim(); settings.OpenAi.SpeechSpeed = (double)speed.Value; settings.OpenAi.AlisaVoice = alisa.Text; settings.OpenAi.UnknownVoice = unknown.Text; settings.OpenAi.Instructions = instructions.Text.Trim(); settings.OpenAi.PersistentSessions = persistentSessions.Checked; store.Save(settings); };
     }
@@ -51,8 +57,8 @@ internal sealed class CastDialog : Form
         var previewControls = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Margin = new Padding(0, 8, 0, 0) };
         previewControls.Controls.Add(preview); previewControls.Controls.Add(stopPreview); previewControls.Controls.Add(previewStatus);
         var right = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(12), ColumnCount = 1, RowCount = 10 };
-        right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.Absolute, 58)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        right.Controls.Add(new Label { Text = "Voice", AutoSize = true }, 0, 0); right.Controls.Add(voice, 0, 1); right.Controls.Add(new Label { Text = "Playback volume", AutoSize = true }, 0, 2); right.Controls.Add(volume, 0, 3); right.Controls.Add(new Label { Text = "Performance instructions", AutoSize = true, Margin = new Padding(0, 10, 0, 3) }, 0, 4); right.Controls.Add(instructions, 0, 5); right.Controls.Add(new Label { Text = "Character preview line", AutoSize = true, Margin = new Padding(0, 10, 0, 3) }, 0, 6); right.Controls.Add(previewLine, 0, 7); right.Controls.Add(previewControls, 0, 8); Button save = new() { Text = "Save selected profile", AutoSize = true, Margin = new Padding(0, 8, 0, 0) }; save.Click += (_, _) => SaveSeed(); right.Controls.Add(save, 0, 9);
+        right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.Absolute, 58)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        right.Controls.Add(new Label { Text = "Voice", AutoSize = true }, 0, 0); right.Controls.Add(voice, 0, 1); right.Controls.Add(new Label { Text = "Character preview line", AutoSize = true, Margin = new Padding(0, 10, 0, 3) }, 0, 2); right.Controls.Add(previewLine, 0, 3); right.Controls.Add(previewControls, 0, 4); right.Controls.Add(new Label { Text = "Playback volume", AutoSize = true, Margin = new Padding(0, 10, 0, 3) }, 0, 5); right.Controls.Add(volume, 0, 6); right.Controls.Add(new Label { Text = "Performance instructions", AutoSize = true, Margin = new Padding(0, 10, 0, 3) }, 0, 7); right.Controls.Add(instructions, 0, 8); Button save = new() { Text = "Save selected profile", AutoSize = true, Margin = new Padding(0, 8, 0, 0) }; save.Click += (_, _) => SaveSeed(); right.Controls.Add(save, 0, 9);
         var split = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1 }; split.Panel1.Controls.Add(names); split.Panel2.Controls.Add(right); Controls.Add(split);
         Shown += (_, _) =>
         {
