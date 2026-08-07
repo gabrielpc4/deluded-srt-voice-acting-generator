@@ -53,6 +53,18 @@ internal sealed class VoiceService : IDisposable
         using (EnterGate("retry_failed", lookup.Key, null, text)) return lookup.IsValid && failureByFile.Remove(lookup.Key);
     }
 
+    /// <summary>Produces one temporary voice sample for the Cast editor. It is
+    /// deliberately independent of the cache and character conversation
+    /// sessions, so auditioning a voice never changes game playback state.</summary>
+    public async Task<byte[]> PreviewAsync(SpeakerProfile speaker, string text, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(settings.OpenAi.ApiKey))
+            throw new InvalidOperationException("OpenAI API key is not configured. Enter it in the application window.");
+        RealtimeAudioResult result = await RealtimeAsync(speaker, text, token);
+        if (result.PcmAudio.Length == 0) throw new InvalidOperationException("Realtime returned no audio for the preview.");
+        return result.PcmAudio;
+    }
+
     /// <summary>For a deliberate manual re-take: forget the clip in memory and
     /// on disk, then close every character session so the next request is a
     /// genuinely fresh realtime performance.</summary>

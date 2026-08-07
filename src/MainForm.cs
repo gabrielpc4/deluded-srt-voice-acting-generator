@@ -564,7 +564,7 @@ internal sealed class MainForm : Form
         ToolStripMenuItem voiceSettings = new("Voice and reader settings...");
         voiceSettings.Click += (_, _) => { using SettingsDialog dialog = new(settings, settingsStore); if (dialog.ShowDialog(this) == DialogResult.OK) { timer.Interval = 1; speakers.RebuildLookup(); AppendLog("Settings saved."); } };
         ToolStripMenuItem castSettings = new("Cast voice profiles...");
-        castSettings.Click += (_, _) => { using CastDialog dialog = new(speakers, settingsStore); dialog.ShowDialog(this); AppendLog("Cast profiles updated."); };
+        castSettings.Click += (_, _) => { using CastDialog dialog = new(speakers, settingsStore, voice); dialog.ShowDialog(this); AppendLog("Cast profiles updated."); };
         settingsMenu.DropDownItems.Add(voiceSettings); settingsMenu.DropDownItems.Add(castSettings); menu.Items.Add(settingsMenu);
         MainMenuStrip = menu;
         return menu;

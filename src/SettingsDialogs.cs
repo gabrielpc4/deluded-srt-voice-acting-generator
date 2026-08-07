@@ -28,16 +28,31 @@ internal sealed class CastDialog : Form
 {
     private readonly SpeakerCatalog catalog;
     private readonly SettingsStore store;
+    private readonly VoiceService voiceService;
+    private readonly CharacterPreviewLineCatalog previewLines = new();
+    private readonly AudioPlaybackController previewPlayback = new();
     private readonly ListBox names = new() { Dock = DockStyle.Fill };
     private readonly ComboBox voice = new() { Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly NumericUpDown volume = new() { Dock = DockStyle.Top, DecimalPlaces = 2, Increment = .05m, Minimum = .25m, Maximum = 2m, Value = 1m };
     private readonly TextBox instructions = new() { Dock = DockStyle.Fill, Multiline = true };
-    public CastDialog(SpeakerCatalog catalog, SettingsStore store)
+    private readonly TextBox previewLine = new() { Dock = DockStyle.Fill, ReadOnly = true, Multiline = true, Height = 52, BackColor = SystemColors.Window };
+    private readonly Label previewStatus = new() { AutoSize = true, Anchor = AnchorStyles.Left };
+    private readonly Button preview = new() { Text = "Preview selected voice", AutoSize = true };
+    private readonly Button stopPreview = new() { Text = "Stop", AutoSize = true, Enabled = false };
+    private CancellationTokenSource? previewCancellation;
+
+    public CastDialog(SpeakerCatalog catalog, SettingsStore store, VoiceService voiceService)
     {
-        this.catalog = catalog; this.store = store; Text = "Cast voice profiles"; ClientSize = new Size(980, 520); MinimumSize = new Size(700, 420); StartPosition = FormStartPosition.CenterParent;
+        this.catalog = catalog; this.store = store; this.voiceService = voiceService; Text = "Cast voice profiles"; ClientSize = new Size(980, 600); MinimumSize = new Size(700, 480); StartPosition = FormStartPosition.CenterParent;
         voice.Items.AddRange(["", "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse", "marin", "cedar"]);
         names.Items.AddRange(catalog.Seeds.OrderBy(seed => seed.CanonicalName).Cast<object>().ToArray()); names.DisplayMember = nameof(SpeakerSeed.CanonicalName); names.SelectedIndexChanged += (_, _) => LoadSeed();
-        var right = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(12), ColumnCount = 1, RowCount = 7 }; right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.Controls.Add(new Label { Text = "Voice", AutoSize = true }, 0, 0); right.Controls.Add(voice, 0, 1); right.Controls.Add(new Label { Text = "Playback volume", AutoSize = true }, 0, 2); right.Controls.Add(volume, 0, 3); right.Controls.Add(new Label { Text = "Performance instructions", AutoSize = true, Margin = new Padding(0, 10, 0, 3) }, 0, 4); right.Controls.Add(instructions, 0, 5); Button save = new() { Text = "Save selected profile", AutoSize = true, Margin = new Padding(0, 10, 0, 0) }; save.Click += (_, _) => SaveSeed(); right.Controls.Add(save, 0, 6);
+        preview.Click += async (_, _) => await PreviewAsync();
+        stopPreview.Click += (_, _) => { previewCancellation?.Cancel(); previewPlayback.Stop(); };
+        var previewControls = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Margin = new Padding(0, 8, 0, 0) };
+        previewControls.Controls.Add(preview); previewControls.Controls.Add(stopPreview); previewControls.Controls.Add(previewStatus);
+        var right = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(12), ColumnCount = 1, RowCount = 10 };
+        right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.Absolute, 58)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize)); right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        right.Controls.Add(new Label { Text = "Voice", AutoSize = true }, 0, 0); right.Controls.Add(voice, 0, 1); right.Controls.Add(new Label { Text = "Playback volume", AutoSize = true }, 0, 2); right.Controls.Add(volume, 0, 3); right.Controls.Add(new Label { Text = "Performance instructions", AutoSize = true, Margin = new Padding(0, 10, 0, 3) }, 0, 4); right.Controls.Add(instructions, 0, 5); right.Controls.Add(new Label { Text = "Character preview line", AutoSize = true, Margin = new Padding(0, 10, 0, 3) }, 0, 6); right.Controls.Add(previewLine, 0, 7); right.Controls.Add(previewControls, 0, 8); Button save = new() { Text = "Save selected profile", AutoSize = true, Margin = new Padding(0, 8, 0, 0) }; save.Click += (_, _) => SaveSeed(); right.Controls.Add(save, 0, 9);
         var split = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1 }; split.Panel1.Controls.Add(names); split.Panel2.Controls.Add(right); Controls.Add(split);
         Shown += (_, _) =>
         {
@@ -48,9 +63,41 @@ internal sealed class CastDialog : Form
             int maximumLeftWidth = split.ClientSize.Width - split.SplitterWidth - split.Panel2MinSize;
             split.SplitterDistance = Math.Clamp(split.ClientSize.Width / 5, split.Panel1MinSize, maximumLeftWidth);
         };
+        FormClosed += (_, _) => { previewCancellation?.Cancel(); previewCancellation?.Dispose(); previewPlayback.Dispose(); };
         if (names.Items.Count > 0) names.SelectedIndex = 0;
     }
     private SpeakerSeed? Selected => names.SelectedItem as SpeakerSeed;
-    private void LoadSeed() { if (Selected is not { } seed) return; voice.SelectedItem = seed.PreferredVoice ?? ""; volume.Value = (decimal)Math.Clamp(seed.VolumeMultiplier ?? 1f, .25f, 2f); instructions.Text = seed.SpeechInstructions ?? ""; }
+    private void LoadSeed()
+    {
+        if (Selected is not { } seed) return;
+        previewCancellation?.Cancel(); previewPlayback.Stop();
+        voice.SelectedItem = seed.PreferredVoice ?? ""; volume.Value = (decimal)Math.Clamp(seed.VolumeMultiplier ?? 1f, .25f, 2f); instructions.Text = seed.SpeechInstructions ?? "";
+        previewLine.Text = previewLines.Find(seed.CanonicalName) ?? "No cached character line is available yet. Add the optional audio cache and reopen this dialog.";
+        previewStatus.Text = string.Empty;
+        preview.Enabled = !string.IsNullOrWhiteSpace(previewLines.Find(seed.CanonicalName));
+    }
     private void SaveSeed() { if (Selected is not { } seed) return; seed.PreferredVoice = string.IsNullOrWhiteSpace(voice.Text) ? null : voice.Text; seed.VolumeMultiplier = (float)volume.Value; seed.SpeechInstructions = string.IsNullOrWhiteSpace(instructions.Text) ? null : instructions.Text.Trim(); catalog.RebuildLookup(); store.SaveSeeds(new SpeakerSeedCollection { Speakers = catalog.Seeds.ToList() }); }
+    private async Task PreviewAsync()
+    {
+        if (Selected is not { } seed) return;
+        string line = previewLines.Find(seed.CanonicalName) ?? "";
+        if (string.IsNullOrWhiteSpace(line)) return;
+        string selectedVoice = voice.Text.Trim();
+        if (selectedVoice.Length == 0) { previewStatus.Text = "Choose a voice first."; return; }
+        previewCancellation?.Cancel(); previewCancellation?.Dispose();
+        previewCancellation = new CancellationTokenSource();
+        CancellationToken token = previewCancellation.Token;
+        preview.Enabled = false; stopPreview.Enabled = true; previewStatus.Text = "Generating preview...";
+        try
+        {
+            SpeakerProfile profile = new(seed.CanonicalName, seed.CanonicalName, selectedVoice, instructions.Text.Trim(), seed.Gender, true, (float)volume.Value);
+            byte[] pcm = await voiceService.PreviewAsync(profile, line, token);
+            previewStatus.Text = "Playing preview...";
+            await previewPlayback.PlayLatestAsync(pcm, profile.VolumeMultiplier);
+            previewStatus.Text = "Preview complete.";
+        }
+        catch (OperationCanceledException) { previewStatus.Text = "Preview stopped."; }
+        catch (Exception exception) { previewStatus.Text = exception.Message; }
+        finally { preview.Enabled = true; stopPreview.Enabled = false; }
+    }
 }
