@@ -44,6 +44,10 @@ internal sealed class GameMemoryReader : IDisposable
     private readonly HashSet<int> replyTextCandidateIndices = new();
     private Task<ObjectInventoryResult>? objectInventoryTask;
     private int inventoryProcessId;
+    // A complete inventory takes a noticeable amount of process-memory I/O.
+    // When the dialogue widget is absent, keep the cadence tied to the start
+    // of the previous inventory, rather than waiting its duration plus a delay.
+    private long nextObjectInventoryStartTimestamp;
     private bool replyInventoryComplete;
     private string lastReplyTextSignature = "";
     public event EventHandler<string>? Diagnostic;
@@ -336,15 +340,22 @@ internal sealed class GameMemoryReader : IDisposable
     {
         dialogueTextCandidateIndices.Clear(); replyTextCandidateIndices.Clear(); candidateStates.Clear();
         objectInventoryTask = null; inventoryProcessId = 0;
+        nextObjectInventoryStartTimestamp = 0;
         replyInventoryComplete = false; lastReplyTextSignature = "";
     }
     private void StartObjectInventoryIfNeeded()
     {
         if (objectInventoryTask is not null || (HasValidWidget && replyInventoryComplete) || process is null || handle == IntPtr.Zero) return;
+        // A live widget can need its first reply-widget inventory immediately.
+        // Otherwise, poll the expensive full inventory at a fixed one-second
+        // cadence from each start, independent of how long the prior pass ran.
+        long now = Stopwatch.GetTimestamp();
+        if (!HasValidWidget && now < nextObjectInventoryStartTimestamp) return;
         int currentCount = ReadI32(imageBase + ObjArray + 0x24);
         if (currentCount <= 0 || currentCount > 10_000_000) return;
         inventoryProcessId = process.Id;
         int processId = process.Id; long baseAddress = imageBase;
+        if (!HasValidWidget) nextObjectInventoryStartTimestamp = now + Stopwatch.Frequency;
         objectInventoryTask = Task.Run(() => ObjectInventoryResult.Scan(processId, baseAddress, 0, currentCount));
     }
     private void UpdateObjectInventory()
