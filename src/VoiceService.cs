@@ -257,7 +257,6 @@ internal sealed class VoiceService : IDisposable
     private Task<RealtimeAudioResult> GeneratePcmAsync(SpeakerProfile speaker, string text, CancellationToken token)
     {
         string textToSpeak = RealtimeTextSanitizer.ReplaceBlockedWords(text, out bool replaced);
-        LogGenerated?.Invoke(this, "------ SANITIZED TEXT: " + textToSpeak + " ------ SANITIZED TEXT END ------");
         if (replaced) LogGenerated?.Invoke(this, "Text replacement applied.");
         if (!settings.OpenAi.PersistentSessions) return GenerateWithoutPersistentSessionAsync(speaker, textToSpeak, token);
         return GenerateWithPersistentSessionAsync(speaker, textToSpeak, token);

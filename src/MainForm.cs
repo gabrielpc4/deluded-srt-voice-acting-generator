@@ -396,10 +396,11 @@ internal sealed class MainForm : Form
             // that duplicate start a second copy.
             lastSpokenTextKey = spokenTextKey;
             lastSpokenNode = snapshot.NodeId;
-            AppendLog(DiagnosticEvent.Create("play.start", ("node", snapshot.NodeId), ("speaker", profile.CanonicalName), ("voice", profile.Voice), ("text", snapshot.Text), ("textHash", TextHash(snapshot.Text))));
+            string sanitizedText = RealtimeTextSanitizer.ReplaceBlockedWords(snapshot.Text, out _);
+            AppendLog(DiagnosticEvent.Create("play.start", ("node", snapshot.NodeId), ("speaker", profile.CanonicalName), ("voice", profile.Voice), ("text", sanitizedText), ("textHash", TextHash(sanitizedText))));
             if (await playback.PlayLatestAsync(pcm, profile.VolumeMultiplier))
             {
-                AppendLog(DiagnosticEvent.Create("play.completed", ("node", snapshot.NodeId), ("speaker", profile.CanonicalName), ("text", snapshot.Text), ("textHash", TextHash(snapshot.Text))));
+                AppendLog(DiagnosticEvent.Create("play.completed", ("node", snapshot.NodeId), ("speaker", profile.CanonicalName), ("text", sanitizedText), ("textHash", TextHash(sanitizedText))));
             }
             else
             {
@@ -591,7 +592,8 @@ internal sealed class MainForm : Form
         if (InvokeRequired) { BeginInvoke(() => AppendLog(message)); return; }
         if (!DiagnosticEvent.IsJsonObject(message)) message = DiagnosticEvent.Create("app.message", ("message", message));
         activityLog.Write(message);
-        log.AppendText(FormatLogForDisplay(message) + Environment.NewLine);
+        string? displayMessage = FormatLogForDisplay(message);
+        if (displayMessage is not null) log.AppendText(displayMessage + Environment.NewLine);
         const int maximumUiCharacters = 20_000;
         if (log.TextLength > maximumUiCharacters) log.Text = log.Text[^maximumUiCharacters..];
         log.SelectionStart = log.TextLength;
@@ -599,7 +601,7 @@ internal sealed class MainForm : Form
     }
 
     // Keep the file log lossless JSON while making the live console easy to scan.
-    private static string FormatLogForDisplay(string message)
+    private static string? FormatLogForDisplay(string message)
     {
         try
         {
@@ -607,14 +609,49 @@ internal sealed class MainForm : Form
             if (!document.RootElement.TryGetProperty("ts", out JsonElement timestamp) ||
                 !DateTimeOffset.TryParse(timestamp.GetString(), out DateTimeOffset parsed)) return message;
 
-            // The persisted JSON retains its exact UTC timestamp.  The UI only needs
-            // a compact local clock, so omit the verbose ISO field from this copy.
-            string withoutTimestamp = System.Text.RegularExpressions.Regex.Replace(
-                message, "\\\"ts\\\"\\s*:\\s*\\\"[^\\\"]*\\\"\\s*,?", string.Empty).TrimStart();
-            return $"{parsed.LocalDateTime:HH:mm:ss.fff} {withoutTimestamp}";
+            JsonElement root = document.RootElement;
+            string eventName = root.TryGetProperty("event", out JsonElement eventValue) ? eventValue.GetString() ?? "event" : "event";
+            string clock = parsed.LocalDateTime.ToString("HH:mm:ss.fff");
+            if (eventName is "play.settle.begin" or "play.settle.end") return null;
+            if (eventName == "app.message")
+            {
+                string appMessage = GetLogString(root, "message");
+                if (appMessage.StartsWith("------ SANITIZED TEXT:", StringComparison.Ordinal)) return null;
+                if (appMessage.StartsWith("Companion started. File log:", StringComparison.Ordinal)) appMessage = "Companion started.";
+                return $"{clock} {appMessage}";
+            }
+
+            string label = eventName switch
+            {
+                "reader.attach.ok" => "Game attached",
+                "reader.widget_cache.hit" => "Dialogue widget restored",
+                "reader.widget_cache.saved" => "Dialogue widget saved",
+                "reader.discovery.found" => "Dialogue widget found",
+                "conversation.start" => "Conversation started",
+                "conversation.end" => "Conversation ended",
+                "subtitle.detected" => "Subtitle detected",
+                "play.queued" => "Playback queued",
+                "play.start" => "Playing",
+                "play.completed" => "Finished",
+                "play.interrupted" => "Playback interrupted",
+                "play.suppressed" => "Playback skipped",
+                "audio.cache.hit" => GetLogString(root, "role") == "prefetch" ? "Next line cached" : "Line cached",
+                "audio.generate.start" => GetLogString(root, "role") == "prefetch" ? "Generating next line" : "Generating line",
+                "audio.ready" => GetLogString(root, "role") == "prefetch" ? "Next line ready" : "Line ready",
+                "audio.request.failed" => "Audio request failed",
+                _ => eventName.Replace('.', ' ')
+            };
+            string speaker = GetLogString(root, "speaker");
+            string text = GetLogString(root, "text");
+            if (!string.IsNullOrWhiteSpace(text))
+                return string.IsNullOrWhiteSpace(speaker) ? $"{clock} {label}: {text}" : $"{clock} {label}: {speaker}: {text}";
+            return $"{clock} {label}";
         }
         catch (JsonException) { return message; }
     }
+
+    private static string GetLogString(JsonElement root, string property) =>
+        root.TryGetProperty(property, out JsonElement value) && value.ValueKind == JsonValueKind.String ? value.GetString() ?? string.Empty : string.Empty;
 
     private static TextBox TextFor() => new() { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Font = new Font("Segoe UI", 8), BackColor = SystemColors.Window, Margin = new Padding(0, 0, 7, 0) };
     private Control ApiKeyPanel()
