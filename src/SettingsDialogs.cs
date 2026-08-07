@@ -72,7 +72,7 @@ internal sealed class CastDialog : Form
         if (Selected is not { } seed) return;
         previewCancellation?.Cancel(); previewPlayback.Stop();
         voice.SelectedItem = seed.PreferredVoice ?? ""; volume.Value = (decimal)Math.Clamp(seed.VolumeMultiplier ?? 1f, .25f, 2f); instructions.Text = seed.SpeechInstructions ?? "";
-        previewLine.Text = previewLines.Find(seed.CanonicalName) ?? "No cached character line is available yet. Add the optional audio cache and reopen this dialog.";
+        previewLine.Text = previewLines.Find(seed.CanonicalName) ?? "No bundled character preview line is available for this profile yet.";
         previewStatus.Text = string.Empty;
         preview.Enabled = !string.IsNullOrWhiteSpace(previewLines.Find(seed.CanonicalName));
     }
