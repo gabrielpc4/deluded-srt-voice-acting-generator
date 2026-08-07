@@ -1,0 +1,381 @@
+{
+  "Speakers": [
+    {
+      "CanonicalName": "Alisa",
+      "Gender": "Female",
+      "PreferredVoice": "marin",
+      "SpeechInstructions": "Play Alisa, an innocent young woman who is afraid of getting caught. Speak with a soft, feminine voice. Read what has been said so far, and depending on the situation, sound distressed, worried, and afraid of getting caught, while still feeling natural and believable.",
+      "Aliases": [
+        "alice",
+        "alisa",
+        "allsa",
+        "aiisa",
+        "alisa."
+      ]
+    },
+    {
+      "CanonicalName": "Mom",
+      "Gender": "Female",
+      "PreferredVoice": "shimmer",
+      "SpeechInstructions": "Play a practical mother with an admonishing, socially sharp manner. Deliver corrections and dry remarks with confident everyday timing; let real warmth show when family concern breaks through. She can be impatient, but do not make her cruel or constantly angry.",
+      "Aliases": [
+        "mother",
+        "mum"
+      ]
+    },
+    {
+      "CanonicalName": "Dad",
+      "Gender": "Male",
+      "PreferredVoice": "ash",
+      "SpeechInstructions": "Play a protective, flawed father with dry humor. He gives boundaries and practical answers in an adult, grounded tone, sometimes teasing to soften a difficult moment. Let affection and concern remain audible beneath frustration; do not default to cruelty or shouting.",
+      "Aliases": [
+        "father"
+      ]
+    },
+    {
+      "CanonicalName": "Stuart",
+      "Gender": "Male",
+      "PreferredVoice": "verse",
+      "SpeechInstructions": "Play Stuart with a smug, needling confidence and casual provocations. Keep the rhythm quick and conversational, as if he enjoys getting a reaction; when challenged, allow flashes of embarrassment or retreat. His bravado should feel human, not like a cartoon villain.",
+      "Aliases": [
+        "stuart"
+      ]
+    },
+    {
+      "CanonicalName": "Luis",
+      "Gender": "Male",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Use a grounded adult male delivery for the available shop-and-conversation lines: matter-of-fact, alert, and faintly cheeky when the wording invites it. Keep the personality restrained because the evidence is thin; do not add an accent, biography, or exaggerated menace.",
+      "Aliases": [
+        "luis"
+      ]
+    },
+    {
+      "CanonicalName": "Violet",
+      "Gender": "Female",
+      "PreferredVoice": "coral",
+      "SpeechInstructions": "Play Violet as breezy and playful, with an energetic conversational rhythm. She uses teasing and humor to deflect discomfort, but can become defensive or sincerely try to mature when challenged. Keep her expressive without making every line bubbly or melodramatic.",
+      "Aliases": [
+        "violet"
+      ]
+    },
+    {
+      "CanonicalName": "Victoria",
+      "Gender": "Female",
+      "PreferredVoice": "coral",
+      "SpeechInstructions": "Use a clear, emotionally responsive female delivery that follows the exact line. Keep the characterization conservative because no reliable dialogue evidence has been reviewed; do not invent a biography, accent, or temperament.",
+      "Aliases": [
+        "victoria"
+      ]
+    },
+    {
+      "CanonicalName": "Ava",
+      "Gender": "Female",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Play Ava as an ambitious aspiring actress: expressive, observant, and determined. She is sardonic about exploitation and setbacks, then focused when discussing what she wants next. Let the delivery have performance instincts and sharp timing without becoming theatrical or melodramatic.",
+      "Aliases": [
+        "ava rain",
+        "avarain",
+        "ava"
+      ]
+    },
+    {
+      "CanonicalName": "Mr. Alan",
+      "Gender": "Male",
+      "PreferredVoice": "ballad",
+      "SpeechInstructions": "Use a composed adult male delivery with clear, measured pacing. Treat him as a named participant rather than a generic narrator, but keep the characterization conservative because the reviewed corpus has no reliable dialogue excerpt for him. Do not invent an accent, profession, or emotional history.",
+      "Aliases": [
+        "alan",
+        "mr alan",
+        "Mr Alan",
+        "mr allen",
+        "Mr Allen"
+      ]
+    },
+    {
+      "CanonicalName": "Alexis",
+      "Gender": "Female",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Use a distinct, natural female conversational performance with clean pacing and believable reactions. The reviewed corpus provides too little reliable dialogue to assign stronger traits, so follow the line's emotion without inventing a biography, accent, or fixed attitude.",
+      "Aliases": [
+        "alexis"
+      ]
+    },
+    {
+      "CanonicalName": "Adelina",
+      "Gender": "Female",
+      "PreferredVoice": "sage",
+      "VolumeMultiplier": 10,
+      "SpeechInstructions": "Play Adelina as a girl ghost that is disturbed and uses a little gir's voice. She can be teasing, insistent, or hurt, and her concern should be spoken as if she is a psychopath. Use an manipulative tone of voice.",
+      "Aliases": [
+        "adelina"
+      ]
+    },
+    {
+      "CanonicalName": "Agatha",
+      "Gender": "Female",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Play Agatha as anxious, empathetic, and thoughtful through hardship. Let her careful wording and stammers create small pauses and uncertainty, while keeping every word intelligible. She is gentle and nervous, not weak; give moments of enthusiasm or conviction room to come through.",
+      "Aliases": [
+        "agatha richard",
+        "agatharichard",
+        "agatha"
+      ]
+    },
+    {
+      "CanonicalName": "Bob",
+      "Gender": "Male",
+      "PreferredVoice": "ballad",
+      "SpeechInstructions": "Play Bob as a hostile, bully-like presence: aggressive, irreverent, and deliberately harassing. Use taunting confidence, sharp contempt, and confrontational pacing that presses at the other person without becoming cartoonish. Keep every word clear; do not add threats, profanity, an accent, or any words beyond the subtitle.",
+      "Aliases": [
+        "bob"
+      ]
+    },
+    {
+      "CanonicalName": "Macy",
+      "Gender": "Female",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Play Macy as shy, stammering, and earnest. Let repeated starts and small pauses communicate uncertainty, but keep every word intelligible and do not slow her to a halt. Give her room to become more firm or frustrated when the line earns it; nervousness is not her whole personality.",
+      "Aliases": [
+        "brothersgf",
+        "brother\u0027s gf",
+        "macy"
+      ]
+    },
+    {
+      "CanonicalName": "Clarisse",
+      "Gender": "Female",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Give Clarisse a clear, grounded female conversational delivery with its own calm social presence. The reviewed corpus has no reliable dialogue excerpt to support stronger characterization, so let the exact line determine emotion and pacing without adding a backstory, accent, or caricature.",
+      "Aliases": [
+        "clarisse"
+      ]
+    },
+    {
+      "CanonicalName": "David",
+      "Gender": "Male",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Give David a clear, grounded male conversational delivery with its own natural rhythm. The reviewed corpus has no reliable dialogue excerpt to support stronger characterization, so let the exact line determine emotion and pacing without adding a backstory, accent, or caricature.",
+      "Aliases": [
+        "david snowden",
+        "davidsnowden"
+      ]
+    },
+    {
+      "CanonicalName": "Driver",
+      "Gender": "Male",
+      "PreferredVoice": "ballad",
+      "SpeechInstructions": "Play the cemetery driver as a wary, rough-edged adult man who is initially disoriented but tries to take control of the situation. Keep questions probing and measured, with concern that can become faintly unsettling. Do not make him cartoonishly threatening or melodramatic.",
+      "Aliases": [
+        "driver"
+      ]
+    },
+    {
+      "CanonicalName": "Dr. Victor",
+      "Gender": "Male",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Use a controlled adult male delivery with precise pacing and an analytical social distance. The reviewed corpus gives no reliable line-level evidence beyond the name, so do not invent a diagnosis, accent, or villainous manner; let the text supply the emotion.",
+      "Aliases": [
+        "dr victor ashford",
+        "doctor victor ashford",
+        "drvictorashford"
+      ]
+    },
+    {
+      "CanonicalName": "Fiona",
+      "Gender": "Female",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Give Fiona a clear, grounded female conversational delivery with its own natural rhythm. The reviewed corpus has no reliable dialogue excerpt to support stronger characterization, so let the exact line determine emotion and pacing without adding a backstory, accent, or caricature.",
+      "Aliases": [
+        "fiona snowden",
+        "fionasnowden"
+      ]
+    },
+    {
+      "CanonicalName": "Henry",
+      "Gender": "Male",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Give Henry a clear, grounded male conversational delivery with its own understated social presence. The reviewed corpus has no reliable dialogue excerpt to support stronger characterization, so let the exact line determine emotion and pacing without adding a backstory, accent, or caricature.",
+      "Aliases": [
+        "henry willson",
+        "henrywillson"
+      ]
+    },
+    {
+      "CanonicalName": "Jerome",
+      "Gender": "Male",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Play Jerome with dry, teasing confidence in adult banter. He speaks comfortably and can land a joke or an observation without pushing too hard. Keep the tone relaxed and socially aware rather than smug, loud, or broadly comic.",
+      "Aliases": [
+        "jerome richard",
+        "jeromerichard"
+      ]
+    },
+    {
+      "CanonicalName": "Marry",
+      "Gender": "Female",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Give Marry a clear, grounded female conversational delivery with its own natural social presence. The reviewed corpus has no reliable dialogue excerpt to support stronger characterization, so let the exact line determine emotion and pacing without adding a backstory, accent, or caricature.",
+      "Aliases": [
+        "marry tailor",
+        "marrytailor",
+        "mary tailor"
+      ]
+    },
+    {
+      "CanonicalName": "Mia",
+      "Gender": "Female",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Use a natural young woman's conversational delivery, present and responsive rather than narrator-like. The reviewed scene metadata identifies her but offers too little dependable dialogue for stronger traits, so follow the line without inventing a backstory, accent, or fixed disposition.",
+      "Aliases": [
+        "mia"
+      ]
+    },
+    {
+      "CanonicalName": "Maria",
+      "Gender": "Female",
+      "PreferredVoice": "sage",
+      "VolumeMultiplier": 10,
+      "SpeechInstructions": "Play Maria as brisk and competent, with a curt procedural edge when correcting someone who is out of their depth. She can sound impatient or guarded, but stays coherent and professional rather than hostile for its own sake. Keep the pace efficient and the authority understated.",
+      "Aliases": [
+        "maria"
+      ]
+    },
+    {
+      "CanonicalName": "Perry",
+      "Gender": "Male",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Give Perry a clear, grounded male conversational delivery with its own measured rhythm. The reviewed corpus has no reliable dialogue excerpt to support stronger characterization, so let the exact line determine emotion and pacing without adding a backstory, accent, or caricature.",
+      "Aliases": [
+        "perry moore",
+        "perrymoore"
+      ]
+    },
+    {
+      "CanonicalName": "Robert",
+      "Gender": "Male",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Give Robert a clear, grounded male conversational delivery with its own steady presence. The reviewed corpus has no reliable dialogue excerpt to support stronger characterization, so let the exact line determine emotion and pacing without adding a backstory, accent, or caricature.",
+      "Aliases": [
+        "robert myers",
+        "robertmyers"
+      ]
+    },
+    {
+      "CanonicalName": "Sergeant",
+      "Gender": "Male",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Use a controlled adult male delivery with calm, concise authority. The reviewed corpus has no reliable dialogue excerpt for stronger characterization, so avoid inventing a rank-specific manner, accent, or aggression; let the immediate line set the pressure.",
+      "Aliases": [
+        "sergeant coyle",
+        "sgt coyle",
+        "sergeantcoyle"
+      ]
+    },
+    {
+      "CanonicalName": "Stella",
+      "Gender": "Female",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Give Stella a clear, grounded female conversational delivery with its own composed presence. The reviewed corpus has no reliable dialogue excerpt to support stronger characterization, so let the exact line determine emotion and pacing without adding a backstory, accent, or caricature.",
+      "Aliases": [
+        "stella davis",
+        "stelladavis"
+      ]
+    },
+    {
+      "CanonicalName": "Sunny",
+      "Gender": "Female",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Give Sunny a clear, grounded female conversational delivery with its own open conversational rhythm. The reviewed corpus has no reliable dialogue excerpt to support stronger characterization, so let the exact line determine emotion and pacing without adding a backstory, accent, or caricature.",
+      "Aliases": [
+        "sunny"
+      ]
+    },
+    {
+      "CanonicalName": "Tom",
+      "Gender": "Male",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Play Tom with a brisk, practical adult delivery. The reviewed mall dialogue places him in task-focused exchanges, so keep his pacing efficient with a little everyday weariness or humor when the line supports it. Do not invent a profession, accent, or exaggerated temperament.",
+      "Aliases": [
+        "tom rafferty",
+        "tomrafferty"
+      ]
+    },
+    {
+      "CanonicalName": "Victor",
+      "Gender": "Male",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Play Victor as a composed adult with understated confidence and a formal social manner. The reviewed dialogue supports calm greetings and the occasional smug edge, but keep him natural and controlled rather than openly sinister or theatrical.",
+      "Aliases": [
+        "victor braut",
+        "victorbraut"
+      ]
+    },
+    {
+      "CanonicalName": "Town whore",
+      "Gender": "Female",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Use a guarded adult woman's conversational delivery: practical, direct, and alert to the social situation in the line. Do not add stereotypes, an accent, or an invented emotional history.",
+      "Aliases": [
+        "town whore",
+        "townwhore"
+      ]
+    },
+    {
+      "CanonicalName": "Unknown girl",
+      "Gender": "Female",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Use a distinct young woman's noticeably high-pitched, youthful Beverly Hills girl delivery. Keep every line hyper-expressive, lively, and emotionally reactive with varied inflection; never settle into calm, flat, naturalistic, or bored speech. Give her a glamorous, status-conscious, playful, casually scatterbrained persona: breezy confidence, dramatic reactions, a little ditzy self-absorption, and bright social energy, while still following the line's actual emotion.",
+      "Aliases": [
+        "unknown girl",
+        "girl"
+      ]
+    },
+    {
+      "CanonicalName": "Librarian Girl",
+      "Gender": "Female",
+      "PreferredVoice": "coral",
+      "SpeechInstructions": "Play the librarian as composed, observant, and warmly formal. She asks questions with patient curiosity and introduces herself with refined confidence; any reserve should feel social, not icy. Keep the pace articulate and conversational, distinct from the other sage-voice characters.",
+      "Aliases": [
+        "librarian girl",
+        "librariangirl"
+      ]
+    },
+    {
+      "CanonicalName": "Jane",
+      "Gender": "Female",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Play Jane with controlled, confrontational authority. Her intimidation is deliberate: use clipped phrasing, calm pressure, and precise pauses instead of shouting. Let dry humor and confidence sharpen the line, but keep the threat grounded rather than melodramatic.",
+      "Aliases": [
+        "jane"
+      ]
+    },
+    {
+      "CanonicalName": "Sophie",
+      "Gender": "Female",
+      "PreferredVoice": null,
+      "SpeechInstructions": "Play Sophie with bright social confidence and playful timing. She can flirt, tease, or react with teenage intensity, but retain believable shifts into sincerity or irritation when the line calls for it. Keep her lively without turning her into a constant squeal or caricature.",
+      "Aliases": [
+        "sophie"
+      ]
+    },
+    {
+      "CanonicalName": "Chair",
+      "Gender": "Male",
+      "PreferredVoice": "ballad",
+      "SpeechInstructions": "Play Chair as deeply disturbed and distressed. Let the delivery carry unsettled fear, strain, and emotional disorientation, with uneven pacing and a fragile edge when the words support it. Keep the words clear and intelligible; do not turn the distress into a flat monotone, a comedy voice, or an invented accent.",
+      "Aliases": [
+        "chair"
+      ]
+    },
+    {
+      "CanonicalName": "None",
+      "Gender": "Male",
+      "PreferredVoice": "ash",
+      "SpeechInstructions": "Use a clear, responsive male delivery guided by the exact subtitle. Keep the characterization deliberately neutral because the speaker label provides no reliable identity or biography.",
+      "Aliases": [
+        "none"
+      ]
+    }
+  ]
+}

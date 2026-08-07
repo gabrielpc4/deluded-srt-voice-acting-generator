@@ -1,0 +1,51 @@
+{
+  "Profiles": [
+    {
+      "Id": "cemetery-driver",
+      "Match": {
+        "ExactTexts": [
+          "Who are you?",
+          "Girl? Can you hear me? Help me remember what I'm doing here!",
+          "Are you alright girl?",
+          "Seems like you has been through a lot...",
+          "That's all I have, just put it on",
+          "Get in the car, I will drive you home",
+          "Let me refresh your memory, it usually helps",
+          "Do you remember yourself in school? Did you do well there?",
+          "Are you interested in a hobby or take up a sport?",
+          "How you ended up like this, girl?",
+          "Do you remember your name?",
+          "And where's that girl?",
+          "Okay I will drive you home... Where do you live?",
+          "And who are you then?",
+          "Where do you live, girl?"
+        ],
+        "AssetHints": [
+          "Content\\SRTP\\Cinematics\\StartCemetery\\Driving\\DI_Driving.uasset"
+        ]
+      },
+      "Gender": "Male",
+      "Voice": "ballad",
+      "Instructions": "Play a wary, rough-edged adult man who initially sounds disoriented but is trying to take control of the situation. Keep the pacing measured and conversational; questions should probe for information, with concern that can turn faintly unsettling. Do not make him cartoonishly threatening or melodramatic.",
+      "Evidence": "DI_Driving pairs these exact lines with the opening cemetery car encounter; the man addresses Alisa as 'girl' while trying to recover what happened."
+    },
+    {
+      "Id": "day5-ava-unlabeled",
+      "Match": {
+        "ExactTexts": [
+          "Bearing such discomfort for our love? I... Just the thought is driving me to the brim!",
+          "D-don't stop! J-just uhm g-give it to me!",
+          "H-hun, my oh fff...um b-back starting to h-ah! Hurt",
+          "Ah-m. Easy there, hah!"
+        ],
+        "AssetHints": [
+          "Content\\SRTP\\Quests\\Prologue\\Day5IntercityMall\\DI_Day5_Ava.uasset"
+        ]
+      },
+      "Gender": "Female",
+      "Voice": "coral",
+      "Instructions": "Use an emotionally heightened adult female delivery. Let the line's breathlessness, hesitation, distress, or excitement shape the pace and expression, while keeping words intelligible and avoiding added narration.",
+      "Evidence": "DI_Day5_Ava contains these exact unlabeled text rows. The prior generic-unknown cache entries preserve the same lines but not their female attribution."
+    }
+  ]
+}

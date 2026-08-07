@@ -1,0 +1,17 @@
+bin/
+obj/
+artifacts/
+cache/*
+!cache/.gitkeep
+logs/
+.env
+.env.*
+openai-api-key.txt
+appsettings.local.json
+*.user
+tools/
+docs/
+scripts/
+assets/
+source.zip
+local_faster_whisper_worker.py
