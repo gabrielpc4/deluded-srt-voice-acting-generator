@@ -1,4 +1,5 @@
 using NAudio.Wave;
+using System.Diagnostics;
 
 /// <summary>
 /// The game is the source of truth for ordering. A newly visible dialogue line
@@ -6,6 +7,7 @@ using NAudio.Wave;
 /// </summary>
 internal sealed class AudioPlaybackController : IDisposable
 {
+    private static readonly TimeSpan NearCompletionGrace = TimeSpan.FromMilliseconds(150);
     private readonly object gate = new();
     private CancellationTokenSource? activeCancellation;
 
@@ -20,18 +22,21 @@ internal sealed class AudioPlaybackController : IDisposable
         }
 
         bool completed = false;
+        Stopwatch elapsed = Stopwatch.StartNew();
+        TimeSpan expectedDuration = TimeSpan.Zero;
         try
         {
             using WaveOutEvent output = new();
             byte[] playbackPcm = AmplifyPcm(pcm, volumeMultiplier);
+            expectedDuration = TimeSpan.FromSeconds(playbackPcm.Length / (double)(24000 * 2));
             using RawSourceWaveStream stream = new(new MemoryStream(playbackPcm), new WaveFormat(24000, 16, 1));
             using CancellationTokenRegistration stopRegistration = cancellation.Token.Register(output.Stop);
             output.Init(stream);
             output.Play();
             while (output.PlaybackState == PlaybackState.Playing && !cancellation.IsCancellationRequested) await Task.Delay(20, cancellation.Token);
-            completed = !cancellation.IsCancellationRequested;
+            completed = !cancellation.IsCancellationRequested || ReachedAudibleEnd(elapsed.Elapsed, expectedDuration);
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) { completed = ReachedAudibleEnd(elapsed.Elapsed, expectedDuration); }
         finally
         {
             lock (gate)
@@ -42,6 +47,9 @@ internal sealed class AudioPlaybackController : IDisposable
         }
         return completed;
     }
+
+    private static bool ReachedAudibleEnd(TimeSpan elapsed, TimeSpan expectedDuration) =>
+        expectedDuration > TimeSpan.Zero && elapsed >= expectedDuration - NearCompletionGrace;
 
     public void Stop()
     {
