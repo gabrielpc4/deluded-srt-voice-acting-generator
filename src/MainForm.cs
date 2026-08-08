@@ -195,7 +195,10 @@ internal sealed class MainForm : Form
 
         SkipPrefetch:
 
-            string playbackKey = $"{snapshot.NodeId}|{currentProfile.CanonicalName}|{snapshot.Text}";
+            // UE can rewrite the active dialogue-node id several times while
+            // Slate still displays exactly the same line. The rendered speaker
+            // and text are the stable identity for scheduling narration.
+            string playbackKey = PlaybackKey(currentProfile, snapshot.Text);
             if (!string.Equals(playbackKey, lastPlaybackKey, StringComparison.Ordinal))
             {
                 lastPlaybackKey = playbackKey;
@@ -349,7 +352,7 @@ internal sealed class MainForm : Form
     {
         try
         {
-            string expectedPlaybackKey = $"{snapshot.NodeId}|{profile.CanonicalName}|{snapshot.Text}";
+            string expectedPlaybackKey = PlaybackKey(profile, snapshot.Text);
             int subtitleStartDelayMilliseconds = Math.Max(0, settings.Reader.SubtitleStartDelayMilliseconds);
             Task subtitleStartDelay = applySubtitleStartDelay && subtitleStartDelayMilliseconds > 0 ? Task.Delay(subtitleStartDelayMilliseconds) : Task.CompletedTask;
             AppendLog(DiagnosticEvent.Create("play.settle.begin", ("node", snapshot.NodeId), ("expectedPlaybackKey", expectedPlaybackKey)));
@@ -415,6 +418,9 @@ internal sealed class MainForm : Form
                 AppendLog(exception.Message);
         }
     }
+    private static string PlaybackKey(SpeakerProfile profile, string text) =>
+        string.Concat(profile.CanonicalName, "\u001f", text);
+
     private void PollManualRecoveryInput(bool gameIsForeground)
     {
         bool eDown = (Native.GetAsyncKeyState(0x45) & 0x8000) != 0;
