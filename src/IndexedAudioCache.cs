@@ -7,6 +7,10 @@ internal readonly record struct IndexedAudioLookup(string Key, string Speaker, s
     public bool IsValid => !string.IsNullOrWhiteSpace(Key);
 }
 internal readonly record struct IndexedCacheHit(byte[] PcmAudio, string Transcript, bool HasTranscript, bool InspectionAttempted);
+internal sealed record CachedAudioEntry(string Key, string Speaker, string Subtitle, string AudioFileName, DateTimeOffset CreatedUtc)
+{
+    public override string ToString() => $"{Speaker} — {Subtitle}";
+}
 
 /// <summary>The original persistent cache design: normalized speaker/subtitle
 /// key, JSON index, and human-readable WAV names.</summary>
@@ -29,6 +33,41 @@ internal sealed class IndexedAudioCache
         {
             loaded = false;
             entryByKey = new(StringComparer.Ordinal);
+        }
+    }
+    public IReadOnlyList<CachedAudioEntry> ListEntries()
+    {
+        lock (gate)
+        {
+            EnsureLoaded();
+            return entryByKey.Values
+                .Select(entry => new { Entry = entry, Path = Path.Combine(directory, entry.AudioFileName) })
+                .Where(value => File.Exists(value.Path))
+                .Select(value => new CachedAudioEntry(value.Entry.Key, value.Entry.Speaker, value.Entry.Subtitle, value.Entry.AudioFileName, value.Entry.CreatedUtc ?? new DateTimeOffset(File.GetCreationTimeUtc(value.Path), TimeSpan.Zero)))
+                .OrderByDescending(entry => entry.CreatedUtc).ThenBy(entry => entry.Speaker).ThenBy(entry => entry.Subtitle)
+                .ToList();
+        }
+    }
+    public bool TryReadByKey(string key, out byte[] pcm)
+    {
+        pcm = [];
+        lock (gate)
+        {
+            EnsureLoaded();
+            if (!entryByKey.TryGetValue(key, out IndexedAudioEntry? entry)) return false;
+            string path = Path.Combine(directory, entry.AudioFileName);
+            if (!File.Exists(path)) return false;
+            using WaveFileReader reader = new(path); using MemoryStream output = new(); reader.CopyTo(output); pcm = output.ToArray();
+            return pcm.Length > 0;
+        }
+    }
+    public bool RemoveByKey(string key)
+    {
+        lock (gate)
+        {
+            EnsureLoaded();
+            if (!entryByKey.Remove(key, out IndexedAudioEntry? entry)) return false;
+            DeleteAudioFile(entry.AudioFileName); SaveIndex(); return true;
         }
     }
     public IndexedAudioLookup CreateLookup(SpeakerProfile profile, string subtitle)
@@ -100,7 +139,7 @@ internal sealed class IndexedAudioCache
             using FileStream stream = File.Create(Path.Combine(directory, fileName));
             using WaveFileWriter writer = new(stream, new WaveFormat(24000, 16, 1));
             writer.Write(pcm, 0, pcm.Length);
-            entryByKey[lookup.Key] = new IndexedAudioEntry { Key = lookup.Key, Speaker = lookup.Speaker, Subtitle = lookup.Subtitle, AudioFileName = fileName, Transcript = transcript, HasTranscript = !string.IsNullOrWhiteSpace(transcript), InspectionAttempted = inspectionAttempted };
+            entryByKey[lookup.Key] = new IndexedAudioEntry { Key = lookup.Key, Speaker = lookup.Speaker, Subtitle = lookup.Subtitle, AudioFileName = fileName, CreatedUtc = DateTimeOffset.UtcNow, Transcript = transcript, HasTranscript = !string.IsNullOrWhiteSpace(transcript), InspectionAttempted = inspectionAttempted };
             SaveIndex();
         }
     }
@@ -195,5 +234,5 @@ internal sealed class IndexedAudioCache
         return AppContext.BaseDirectory;
     }
     private sealed class IndexedAudioIndex { public List<IndexedAudioEntry> Entries { get; set; } = []; }
-    private sealed class IndexedAudioEntry { public string Key { get; set; } = ""; public string Speaker { get; set; } = ""; public string Subtitle { get; set; } = ""; public string AudioFileName { get; set; } = ""; public string? Transcript { get; set; } public bool HasTranscript { get; set; } public bool InspectionAttempted { get; set; } public bool SageVolumeDoubled { get; set; } public int SageVolumeGain { get; set; } }
+    private sealed class IndexedAudioEntry { public string Key { get; set; } = ""; public string Speaker { get; set; } = ""; public string Subtitle { get; set; } = ""; public string AudioFileName { get; set; } = ""; public DateTimeOffset? CreatedUtc { get; set; } public string? Transcript { get; set; } public bool HasTranscript { get; set; } public bool InspectionAttempted { get; set; } public bool SageVolumeDoubled { get; set; } public int SageVolumeGain { get; set; } }
 }

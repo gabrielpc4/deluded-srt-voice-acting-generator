@@ -39,6 +39,20 @@ internal sealed class VoiceService : IDisposable
         indexedCache.Reload();
         LogGenerated?.Invoke(this, "Optional cache updated.");
     }
+    public IReadOnlyList<CachedAudioEntry> ListCachedAudio() => indexedCache.ListEntries();
+    public bool TryReadCachedAudio(string key, out byte[] pcm) => indexedCache.TryReadByKey(key, out pcm);
+    public bool DeleteCachedAudio(string key)
+    {
+        using (EnterGate("delete_cached_audio", key, null, ""))
+        {
+            readyPcmByFile.Remove(key);
+            failureByFile.Remove(key);
+            conversationRecordedKeys.Remove(key);
+        }
+        bool removed = indexedCache.RemoveByKey(key);
+        if (removed) LogGenerated?.Invoke(this, "Cached audio deleted.");
+        return removed;
+    }
 
     public AudioStatus Status(SpeakerProfile speaker, string text)
     {

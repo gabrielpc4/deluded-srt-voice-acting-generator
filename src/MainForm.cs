@@ -52,6 +52,7 @@ internal sealed class MainForm : Form
     private DateTime? eDialogueCheckDueUtc;
     private bool rWasDown;
     private bool apiKeyEditing;
+    private readonly CacheManagementPanel cachePanel;
 
     public MainForm(Settings settings, SettingsStore settingsStore, SpeakerCatalog speakers)
     {
@@ -62,6 +63,7 @@ internal sealed class MainForm : Form
         reader = new GameMemoryReader(settings.Reader.ProcessName);
         reader.Diagnostic += (_, message) => AppendLog(message);
         voice = new VoiceService(settings);
+        cachePanel = new CacheManagementPanel(settings, settingsStore, voice);
         Text = "Deluded Voice Acting Generator";
         ClientSize = new Size(1760, 720);
         MinimumSize = new Size(1000, 560);
@@ -78,7 +80,11 @@ internal sealed class MainForm : Form
         subtitles.Controls.Add(SubtitlePanel("Current Subtitle", currentText), 0, 0);
         subtitles.Controls.Add(SubtitlePanel("Next Subtitle", nextText), 1, 0);
         root.Controls.Add(subtitles, 0, 1);
-        root.Controls.Add(log, 0, 2);
+        var lowerSplit = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6 };
+        lowerSplit.Panel1.Controls.Add(log);
+        lowerSplit.Panel2.Controls.Add(cachePanel);
+        lowerSplit.SplitterDistance = ClientSize.Width / 2;
+        root.Controls.Add(lowerSplit, 0, 2);
         MenuStrip menu = CreateMenus();
         var shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
         shell.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -100,7 +106,7 @@ internal sealed class MainForm : Form
         timer.Interval = 16;
         timer.Tick += async (_, _) => await TickAsync();
         timer.Start();
-        FormClosed += (_, _) => { timer.Stop(); UnregisterUnknownChoiceHotkeys(); playback.Dispose(); reader.Dispose(); voice.Dispose(); };
+        FormClosed += (_, _) => { timer.Stop(); UnregisterUnknownChoiceHotkeys(); cachePanel.Dispose(); playback.Dispose(); reader.Dispose(); voice.Dispose(); };
         AppendLog($"Companion started. File log: {activityLog.CurrentPath}");
     }
 
@@ -613,9 +619,7 @@ internal sealed class MainForm : Form
         voiceSettings.Click += (_, _) => { using SettingsDialog dialog = new(settings, settingsStore); if (dialog.ShowDialog(this) == DialogResult.OK) { timer.Interval = 1; speakers.RebuildLookup(); AppendLog("Settings saved."); } };
         ToolStripMenuItem castSettings = new("Cast voice profiles...");
         castSettings.Click += (_, _) => { using CastDialog dialog = new(speakers, settingsStore, voice); dialog.ShowDialog(this); AppendLog("Cast profiles updated."); };
-        ToolStripMenuItem cacheDownloads = new("Download optional cache...");
-        cacheDownloads.Click += (_, _) => { using CacheDownloadDialog dialog = new(settings, settingsStore, voice); dialog.ShowDialog(this); };
-        settingsMenu.DropDownItems.Add(voiceSettings); settingsMenu.DropDownItems.Add(castSettings); settingsMenu.DropDownItems.Add(new ToolStripSeparator()); settingsMenu.DropDownItems.Add(cacheDownloads); menu.Items.Add(settingsMenu);
+        settingsMenu.DropDownItems.Add(voiceSettings); settingsMenu.DropDownItems.Add(castSettings); menu.Items.Add(settingsMenu);
         MainMenuStrip = menu;
         return menu;
     }
