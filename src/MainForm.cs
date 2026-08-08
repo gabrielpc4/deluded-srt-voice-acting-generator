@@ -37,6 +37,7 @@ internal sealed class MainForm : Form
     private int lastSpokenNode;
     private SubtitleSnapshot? latestSnapshot;
     private SpeakerGender? unknownSpeakerGender;
+    private readonly Dictionary<string, SpeakerGender> cachedUnknownGenderByLine = new(StringComparer.Ordinal);
     private int? pendingUnknownSpeakerNode;
     private bool unknownChoicePromptInFlight;
     private int unknownChoiceRequestId;
@@ -124,6 +125,7 @@ internal sealed class MainForm : Form
                 lastSpokenTextKey = null;
                 lastSpokenNode = 0;
                 prefetchedSubtitleKeys.Clear();
+                cachedUnknownGenderByLine.Clear();
                 unknownSpeakerGender = null;
                 pendingUnknownSpeakerNode = null;
                 UnregisterUnknownChoiceHotkeys();
@@ -151,16 +153,21 @@ internal sealed class MainForm : Form
             bool suppressCurrent = currentIsMenu || !snapshot.Text.Any(char.IsLetterOrDigit);
             if (currentIsUnknownSpeaker && !currentHasUnknownProfile && unknownSpeakerGender is null && !suppressCurrent)
             {
-                AudioStatus unknownStatus = voice.Status(speakers.Resolve(snapshot.Speaker, snapshot.Text, SpeakerGender.Female), snapshot.Text);
-                if (unknownStatus.State == AudioState.Waiting)
+                string unknownLineKey = UnknownLineKey(snapshot.Speaker, snapshot.Text);
+                if (!cachedUnknownGenderByLine.TryGetValue(unknownLineKey, out SpeakerGender cachedGender) &&
+                    !TryResolveUnknownGenderFromCache(snapshot.Speaker, snapshot.Text, out cachedGender))
                 {
                     currentText.Text = snapshot.Text;
                     nextText.Text = "Choose speaker: M = male, F = female. Advancing defaults to female.";
                     BeginUnknownSpeakerChoice(snapshot);
                     return Task.CompletedTask;
                 }
-                ChooseUnknownSpeakerGender(SpeakerGender.Female, "cached_default");
-                currentProfile = ResolveSubtitleProfile(snapshot.Speaker, snapshot.Text);
+                if (cachedUnknownGenderByLine.TryAdd(unknownLineKey, cachedGender))
+                    AppendLog(DiagnosticEvent.Create("unknown_speaker.cache_resolved", ("node", snapshot.NodeId), ("gender", cachedGender.ToString().ToLowerInvariant()), ("text", snapshot.Text), ("textHash", TextHash(snapshot.Text))));
+                // A cache hit only resolves this line. Leave the conversation
+                // uncommitted so a later uncached unknown line can still ask
+                // the player which gender to use.
+                currentProfile = speakers.Resolve(snapshot.Speaker, snapshot.Text, cachedGender);
             }
             AudioStatus currentStatus = suppressCurrent
                 ? new(AudioState.Unavailable, "Skipped: not a spoken subtitle.")
@@ -263,6 +270,29 @@ internal sealed class MainForm : Form
     {
         SpeakerGender? selectedGender = SpeakerCatalog.IsQuestionOnlyPlaceholder(rawSpeaker) ? unknownSpeakerGender : null;
         return speakers.Resolve(rawSpeaker, subtitle, selectedGender);
+    }
+
+    private bool TryResolveUnknownGenderFromCache(string rawSpeaker, string subtitle, out SpeakerGender gender)
+    {
+        // The generic female and male fallbacks intentionally use distinct
+        // cache identities. Check both before prompting; a cached recording
+        // already tells us which voice can play without user input.
+        SpeakerProfile female = speakers.Resolve(rawSpeaker, subtitle, SpeakerGender.Female);
+        if (voice.Status(female, subtitle).State is AudioState.CacheHit or AudioState.Ready)
+        {
+            gender = SpeakerGender.Female;
+            return true;
+        }
+
+        SpeakerProfile male = speakers.Resolve(rawSpeaker, subtitle, SpeakerGender.Male);
+        if (voice.Status(male, subtitle).State is AudioState.CacheHit or AudioState.Ready)
+        {
+            gender = SpeakerGender.Male;
+            return true;
+        }
+
+        gender = default;
+        return false;
     }
 
     private void BeginUnknownSpeakerChoice(SubtitleSnapshot snapshot)
@@ -421,6 +451,8 @@ internal sealed class MainForm : Form
     private static string PlaybackKey(SpeakerProfile profile, string text) =>
         string.Concat(profile.CanonicalName, "\u001f", text);
 
+    private static string UnknownLineKey(string speaker, string text) => string.Concat(speaker, "\u001f", text);
+
     private void PollManualRecoveryInput(bool gameIsForeground)
     {
         bool eDown = (Native.GetAsyncKeyState(0x45) & 0x8000) != 0;
@@ -513,6 +545,7 @@ internal sealed class MainForm : Form
         lastPlaybackKey = string.Empty;
         lastSpokenTextKey = null;
         lastSpokenNode = 0;
+        cachedUnknownGenderByLine.Clear();
         CancelUnknownSpeakerChoice("manual_reset");
         bool deletedAudio = false;
         if (snapshot is not null && snapshot.Text.Any(char.IsLetterOrDigit) && !snapshot.IsChoiceMenu && !IsPossibleReplies(snapshot.Text))
@@ -656,6 +689,8 @@ internal sealed class MainForm : Form
                 string shortText = ShortLogText(GetLogString(root, "text"));
                 return string.IsNullOrWhiteSpace(shortText) ? $"{clock} Playback skipped." : $"{clock} Playback skipped: {shortText}";
             }
+
+            if (eventName == "unknown_speaker.cache_resolved") return $"{clock} Unknown speaker resolved from cache.";
 
             string label = eventName switch
             {
