@@ -618,13 +618,43 @@ internal sealed class MainForm : Form
             JsonElement root = document.RootElement;
             string eventName = root.TryGetProperty("event", out JsonElement eventValue) ? eventValue.GetString() ?? "event" : "event";
             string clock = parsed.LocalDateTime.ToString("HH:mm:ss.fff");
-            if (eventName is "play.settle.begin" or "play.settle.end") return null;
+            if (eventName is "play.settle.begin" or "play.settle.end"
+                or "subtitle.detected" or "play.queued" or "play.completed"
+                or "reader.widget.invalid"
+                or "reader.widget_cache.invalid" or "reader.candidate.state") return null;
             if (eventName == "app.message")
             {
                 string appMessage = GetLogString(root, "message");
                 if (appMessage.StartsWith("------ SANITIZED TEXT:", StringComparison.Ordinal)) return null;
                 if (appMessage.StartsWith("Companion started. File log:", StringComparison.Ordinal)) appMessage = "Companion started.";
                 return $"{clock} {appMessage}";
+            }
+
+            if (eventName is "audio.cache.hit" or "audio.generate.start" or "audio.ready")
+            {
+                string action = eventName switch
+                {
+                    "audio.cache.hit" => "Cache hit",
+                    "audio.generate.start" => "Generating",
+                    _ => "Generated"
+                };
+                string role = GetLogString(root, "role");
+                string shortText = ShortLogText(GetLogString(root, "text"));
+                string target = role == "prefetch" ? " next" : string.Empty;
+                return string.IsNullOrWhiteSpace(shortText) ? $"{clock} {action}{target}." : $"{clock} {action}{target}: {shortText}";
+            }
+
+            if (eventName == "play.start")
+            {
+                string playingSpeaker = GetLogString(root, "speaker");
+                string playingText = GetLogString(root, "text");
+                return string.IsNullOrWhiteSpace(playingSpeaker) ? $"{clock} Playing: {playingText}" : $"{clock} Playing: {playingSpeaker}: {playingText}";
+            }
+
+            if (eventName == "play.suppressed")
+            {
+                string shortText = ShortLogText(GetLogString(root, "text"));
+                return string.IsNullOrWhiteSpace(shortText) ? $"{clock} Playback skipped." : $"{clock} Playback skipped: {shortText}";
             }
 
             string label = eventName switch
@@ -635,20 +665,13 @@ internal sealed class MainForm : Form
                 "reader.discovery.found" => "Dialogue widget found",
                 "conversation.start" => "Conversation started",
                 "conversation.end" => "Conversation ended",
-                "subtitle.detected" => "Subtitle detected",
-                "play.queued" => "Playback queued",
-                "play.start" => "Playing",
-                "play.completed" => "Finished",
                 "play.interrupted" => "Playback interrupted",
-                "play.suppressed" => "Playback skipped",
-                "audio.cache.hit" => GetLogString(root, "role") == "prefetch" ? "Next line cached" : "Line cached",
-                "audio.generate.start" => GetLogString(root, "role") == "prefetch" ? "Generating next line" : "Generating line",
-                "audio.ready" => GetLogString(root, "role") == "prefetch" ? "Next line ready" : "Line ready",
                 "audio.request.failed" => "Audio request failed",
                 _ => eventName.Replace('.', ' ')
             };
             string speaker = GetLogString(root, "speaker");
             string text = GetLogString(root, "text");
+            if (eventName == "conversation.start") return $"{clock} {label}.";
             if (!string.IsNullOrWhiteSpace(text))
                 return string.IsNullOrWhiteSpace(speaker) ? $"{clock} {label}: {text}" : $"{clock} {label}: {speaker}: {text}";
             return $"{clock} {label}";
@@ -658,6 +681,14 @@ internal sealed class MainForm : Form
 
     private static string GetLogString(JsonElement root, string property) =>
         root.TryGetProperty(property, out JsonElement value) && value.ValueKind == JsonValueKind.String ? value.GetString() ?? string.Empty : string.Empty;
+
+    private static string ShortLogText(string text)
+    {
+        string normalized = string.Join(' ', text.Trim().Trim('\"', '\u201c', '\u201d').Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (normalized.Length == 0) return string.Empty;
+        string[] words = normalized.Split(' ');
+        return words.Length <= 7 ? normalized : string.Join(' ', words.Take(7)) + "...";
+    }
 
     private static TextBox TextFor() => new() { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Font = new Font("Segoe UI", 8), BackColor = SystemColors.Window, Margin = new Padding(0, 0, 7, 0) };
     private Control ApiKeyPanel()
