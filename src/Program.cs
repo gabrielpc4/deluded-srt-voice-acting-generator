@@ -62,7 +62,7 @@ internal sealed class Settings
     public ReaderSettings Reader { get; set; } = new();
     public CacheSettings Cache { get; set; } = new();
 }
-internal sealed class ReaderSettings { public string ProcessName { get; set; } = "SRTE-Win64-Shipping.exe"; public int SubtitleStartDelayMilliseconds { get; set; } = 250; }
+internal sealed class ReaderSettings { public string ProcessName { get; set; } = "SRTE-Win64-Shipping.exe"; public int SubtitleStartDelayMilliseconds { get; set; } = 350; }
 internal sealed class CacheSettings
 {
     /// <summary>A public HTTPS URL for cache-manifest.json.  The manifest is
