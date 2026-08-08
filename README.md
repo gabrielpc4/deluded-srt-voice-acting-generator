@@ -1,51 +1,32 @@
-# Deluded Voice Acting Generator
+# Deluded (SRT) Voice Acting Generator
+<img width="1983" height="793" alt="readme-header" src="https://github.com/user-attachments/assets/31bb6b8b-dd35-4cb3-9e5a-590ccbba269f" />
 
-An AI voice-acting companion for **Deluded** (tested on 0.5.0). It gives the game's dialogue a speaker-aware performance through OpenAI Realtime voices, with local audio caching for smooth playback.
+A program that reads the game's subtitles in real time and uses AI to generate realistic voice acting to the characters.
 
-The companion is read-only: it uses Windows process enumeration and `ReadProcessMemory` to inspect the running game. It does not inject code, write game memory, modify files, or include any game files.
+<img width="750" src="https://github.com/user-attachments/assets/a58629ed-0778-4bbc-8f55-89fe0c4c12e8" />
 
-## Install
+It uses OpenAI RealTime API to generate the voices, each character has a custom prompt that makes the delivery match the essence of each character. 
 
-1. Download the latest Windows x64 ZIP from [Releases](https://github.com/gabrielpc4/Deluded-Voice-Acting-Generator/releases) and extract it anywhere outside the game folder.
-2. Start `DeludedVoiceActingGenerator.exe`.
-3. Enter your OpenAI API key beside **Open API Key:** and click **Save**. The key is stored only in the ignored local `openai-api-key.txt` file beside the app.
-4. Start Deluded and load a dialogue. The companion looks for `SRTE-Win64-Shipping.exe`.
+<img width="750" alt="ui-voice-profiles" src="https://github.com/user-attachments/assets/73b5564a-152c-4d61-842e-ace309b38ae6" />
 
-The release is self-contained for Windows x64; no source checkout or .NET runtime installation is required.
 
-## Optional prologue audio cache
+This can be accessed under Configure -> Voice Cast Profiles"
 
-The app starts with an empty `cache` folder. Open **Configure → Download optional cache…** to download the optional prologue cache directly into the correct place. The downloader shows file and byte progress, verifies every file before accepting it, and never deletes local cache files.
+# How to Install and use it:
 
-The cache is published separately from the app. It can gain new or replaced recordings at any time: click **Download cache** again and the app downloads only missing or changed files—no new application version or ZIP extraction is needed.
+1. Download the .zip file from the latest release: https://github.com/gabrielpc4/deluded-srt-voice-acting-generator/releases
+2. Extract it *anywhere* you like. Then open "DeludedVoiceActingGenerator.exe"
+3. You will need an [OpenAI key](https://platform.openai.com/api-keys) to generate new audio, you need to have *[credits](https://platform.openai.com/settings/organization/billing/overview)* on your OpenAI API account as well. However, you can download all the audio that I've already generated on my single run of the game by clicking in the *"Download Cache"* button in the program, or downloading the audios from my google drive: https://drive.google.com/drive/folders/18P3Bjujbh2KCfTUjX8j1uCtwOm3dzo9_?usp=sharing and placing them in the "cache" folder (create it). That way you will only generate audio of paths that I haven't chosen in the game, saving tokens.
+4. Open the game with the program opened (or open the program after you open the game, the order doesn't matter). You should start hearing audio when the subtitles appear.
 
-## Usage
+Your OpenAI key is only stored locally at the folder you extracted the program, in a open-ai-key.txt file.
 
-- **Current Subtitle** plays when a spoken dialogue node appears.
-- **Next Subtitle** is an exact graph prediction when available and is pre-cached but never auto-played.
-- Press **R** to reset reader recovery and regenerate the line that was just spoken with a fresh voice session.
-- For unknown speakers, use **M** or **F** when prompted; the selected voice applies for that conversation.
+You can use the program without an OpenAI key, but you will have to download the cache and will be limited to only the dialogues that I've encountered during my gameplay.
 
-## How does it work?
-
-The companion reads the game's live Unreal Engine dialogue widgets using standard Windows read-only process APIs. It validates the active dialogue and speaker text blocks, reads their `FText` contents, and follows the game's loaded dialogue graph to identify an exact next line when the branch is unambiguous.
-
-Each line is matched to a character profile with a chosen OpenAI Realtime voice and acting instructions. The current line is played when it appears; an exact next line is generated or loaded ahead of time into memory, so advancing the dialogue can play it immediately.
-
-Audio is keyed by normalized speaker and subtitle text, then stored as a local WAV cache. Cached files play locally even if OpenAI or the network is unavailable. Only uncached lines require an OpenAI connection. During an active conversation, each character keeps an independent Realtime session for short-term delivery context; those sessions are closed after dialogue ends.
-
-The companion never writes to the game process, injects code, sends input to the game, modifies save files, or distributes any game data.
-
-## Troubleshooting
-
-- **No game detected:** start the supported game build, then load or enter a dialogue.
-- **No audio:** confirm the API key is saved, your network is available for uncached lines, and Windows is using the intended output device.
-- **Cached audio with no network:** cached WAV playback remains local and plays without waiting for OpenAI.
-- **New game build:** dialogue memory offsets are build-specific, so a later game update may require companion changes.
-
-## Privacy and safety
-
-Your API key, audio cache, and diagnostic logs stay local and are excluded from this repository. Do not share them in issue reports or screenshots.
+# Tips
+- Press the "R" key at any time to re-generate the audio of the current subtitle that it's being displayed.
+- This can be also used as a trick if the AI refuses to speak the line because of the guidelines, it resets the memory of the current conversation so the AI doesn't know what it was talking about before, so it reduces the changes of getting rejected due to the previous context.
+- Also if you don't like the intonation used, press "R" and the AI will try again and will probably give you a different intonation.
 
 ## License
 
