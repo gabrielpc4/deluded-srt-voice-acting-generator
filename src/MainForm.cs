@@ -96,7 +96,7 @@ internal sealed class MainForm : Form
         };
         // The memory reader is event-free and inexpensive on the inventory
         // path; manual recovery is bound to R while the game has focus.
-        timer.Interval = 1;
+        timer.Interval = 16;
         timer.Tick += async (_, _) => await TickAsync();
         timer.Start();
         FormClosed += (_, _) => { timer.Stop(); UnregisterUnknownChoiceHotkeys(); playback.Dispose(); reader.Dispose(); voice.Dispose(); };
