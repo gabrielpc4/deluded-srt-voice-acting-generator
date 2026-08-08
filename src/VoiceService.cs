@@ -32,6 +32,14 @@ internal sealed class VoiceService : IDisposable
 
     public VoiceService(Settings settings) => this.settings = settings;
 
+    public string CacheDirectory => indexedCache.DirectoryPath;
+
+    public void ReloadDownloadedCache()
+    {
+        indexedCache.Reload();
+        LogGenerated?.Invoke(this, "Optional cache updated.");
+    }
+
     public AudioStatus Status(SpeakerProfile speaker, string text)
     {
         if (!IsSpeakable(text)) return new(AudioState.Unavailable, "Skipped: no spoken words.");

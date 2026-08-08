@@ -22,6 +22,15 @@ internal sealed class IndexedAudioCache
         directory = Path.Combine(FindProjectDirectory(), "cache");
         indexPath = Path.Combine(directory, "audio-cache-index.json");
     }
+    public string DirectoryPath => directory;
+    public void Reload()
+    {
+        lock (gate)
+        {
+            loaded = false;
+            entryByKey = new(StringComparer.Ordinal);
+        }
+    }
     public IndexedAudioLookup CreateLookup(SpeakerProfile profile, string subtitle)
     {
         string speaker = Normalize(profile.DisplayName);

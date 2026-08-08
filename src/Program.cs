@@ -56,6 +56,18 @@ internal static class ApiKeyStore
     }
 }
 
-internal sealed class Settings { public OpenAiSettings OpenAi { get; set; } = new(); public ReaderSettings Reader { get; set; } = new(); }
+internal sealed class Settings
+{
+    public OpenAiSettings OpenAi { get; set; } = new();
+    public ReaderSettings Reader { get; set; } = new();
+    public CacheSettings Cache { get; set; } = new();
+}
 internal sealed class ReaderSettings { public string ProcessName { get; set; } = "SRTE-Win64-Shipping.exe"; public int SubtitleStartDelayMilliseconds { get; set; } = 250; }
+internal sealed class CacheSettings
+{
+    /// <summary>A public HTTPS URL for cache-manifest.json.  The manifest is
+    /// intentionally separate from the app release so it can be updated at
+    /// any time without distributing a new executable.</summary>
+    public string ManifestUrl { get; set; } = "";
+}
 internal sealed class OpenAiSettings { public string ApiKey { get; set; } = ""; public string RealtimeModel { get; set; } = "gpt-realtime-1.5"; public string AlisaVoice { get; set; } = "marin"; public string UnknownVoice { get; set; } = "cedar"; public double SpeechSpeed { get; set; } = 1.0; public string Instructions { get; set; } = "Speak naturally and clearly."; public List<string> FemaleVoices { get; set; } = ["marin", "shimmer", "coral", "sage"]; public List<string> MaleVoices { get; set; } = ["cedar", "echo", "ash", "alloy", "verse", "ballad"]; public bool PersistentSessions { get; set; } = true; }

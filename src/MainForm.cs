@@ -613,7 +613,9 @@ internal sealed class MainForm : Form
         voiceSettings.Click += (_, _) => { using SettingsDialog dialog = new(settings, settingsStore); if (dialog.ShowDialog(this) == DialogResult.OK) { timer.Interval = 1; speakers.RebuildLookup(); AppendLog("Settings saved."); } };
         ToolStripMenuItem castSettings = new("Cast voice profiles...");
         castSettings.Click += (_, _) => { using CastDialog dialog = new(speakers, settingsStore, voice); dialog.ShowDialog(this); AppendLog("Cast profiles updated."); };
-        settingsMenu.DropDownItems.Add(voiceSettings); settingsMenu.DropDownItems.Add(castSettings); menu.Items.Add(settingsMenu);
+        ToolStripMenuItem cacheDownloads = new("Download optional cache...");
+        cacheDownloads.Click += (_, _) => { using CacheDownloadDialog dialog = new(settings, settingsStore, voice); dialog.ShowDialog(this); };
+        settingsMenu.DropDownItems.Add(voiceSettings); settingsMenu.DropDownItems.Add(castSettings); settingsMenu.DropDownItems.Add(new ToolStripSeparator()); settingsMenu.DropDownItems.Add(cacheDownloads); menu.Items.Add(settingsMenu);
         MainMenuStrip = menu;
         return menu;
     }

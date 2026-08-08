@@ -15,7 +15,9 @@ The release is self-contained for Windows x64; no source checkout or .NET runtim
 
 ## Optional prologue audio cache
 
-The app starts with an empty `cache` folder. To download already generated sounds covering most of the prologue, get the optional cache from [this Google Drive link](<g-drive-link-i-m-going-to-post-later>) and extract its contents into the app's `cache` folder. Existing cache files can be kept.
+The app starts with an empty `cache` folder. Open **Configure → Download optional cache…** to download the optional prologue cache directly into the correct place. The downloader shows file and byte progress, verifies every file before accepting it, and never deletes local cache files.
+
+The cache is published separately from the app. It can gain new or replaced recordings at any time: click **Download cache** again and the app downloads only missing or changed files—no new application version or ZIP extraction is needed.
 
 ## Usage
 
