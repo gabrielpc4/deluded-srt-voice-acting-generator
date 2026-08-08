@@ -20,6 +20,8 @@ internal sealed class CacheManagementPanel : UserControl
     private long displayedCompletedBytes;
     private int displayedTotalFiles;
     private long displayedTotalBytes;
+    private int lastListRefreshCompletedFiles;
+    private long lastListRefreshTick;
 
     public CacheManagementPanel(Settings settings, SettingsStore store, VoiceService voice)
     {
@@ -95,6 +97,7 @@ internal sealed class CacheManagementPanel : UserControl
         settings.Cache.ManifestUrl = manifestUrl.Text.Trim(); store.Save(settings);
         downloadCancellation?.Dispose(); downloadCancellation = new CancellationTokenSource();
         displayedCompletedFiles = 0; displayedCompletedBytes = 0; displayedTotalFiles = 0; displayedTotalBytes = 0;
+        lastListRefreshCompletedFiles = 0; lastListRefreshTick = Environment.TickCount64;
         progress.Value = 0; progressText.Text = "Loading cache manifest..."; SetDownloadUi(true);
         try
         {
@@ -103,7 +106,13 @@ internal sealed class CacheManagementPanel : UserControl
             progress.Value = 100;
             progressText.Text = result.DownloadedFiles == 0 ? "Cache is already up to date." : $"Downloaded {result.DownloadedFiles:N0} files ({FormatBytes(result.DownloadedBytes)}).";
         }
-        catch (OperationCanceledException) { progressText.Text = "Download cancelled; completed files were kept."; }
+        catch (OperationCanceledException)
+        {
+            // Completed WAVs were atomically moved into place before the
+            // cancellation reached the remaining downloads.
+            voice.ReloadDownloadedCache(); RefreshEntries();
+            progressText.Text = $"Download cancelled; {displayedCompletedFiles:N0} completed files were kept.";
+        }
         catch (Exception exception) { progressText.Text = exception.Message; }
         finally
         {
@@ -124,7 +133,21 @@ internal sealed class CacheManagementPanel : UserControl
         progress.Value = percent;
         progressText.Text = displayedTotalFiles == 0
             ? value.CurrentFile
-            : $"Downloading {displayedCompletedFiles:N0} of {displayedTotalFiles:N0} ({percent}%) — {value.CurrentFile}";
+            : $"Downloading {displayedCompletedFiles:N0} complete of {displayedTotalFiles:N0} ({percent}%) — {value.CurrentFile}";
+
+        // The index is available first, then WAVs appear as their atomic
+        // moves complete. Throttle list rebuilds so thousands of downloads do
+        // not make the UI less responsive.
+        long now = Environment.TickCount64;
+        if ((value.CurrentFile.Equals("audio-cache-index.json", StringComparison.OrdinalIgnoreCase) ||
+             displayedCompletedFiles >= lastListRefreshCompletedFiles + 8 ||
+             now - lastListRefreshTick >= 500) && displayedCompletedFiles > 0)
+        {
+            if (value.CurrentFile.Equals("audio-cache-index.json", StringComparison.OrdinalIgnoreCase)) voice.ReloadDownloadedCache();
+            RefreshEntries();
+            lastListRefreshCompletedFiles = displayedCompletedFiles;
+            lastListRefreshTick = now;
+        }
     }
     private async Task PlaySelectedAsync()
     {

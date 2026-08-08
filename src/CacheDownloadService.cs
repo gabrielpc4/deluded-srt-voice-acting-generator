@@ -30,8 +30,9 @@ internal sealed class CacheDownloadService
         int completedFiles = 0;
         progress?.Report(new CacheDownloadProgress(0, pending.Count, 0, totalBytes, "Checking optional cache..."));
 
-        // Keep the index until every WAV is safely in place: a running reader
-        // never observes an index entry pointing to an unfinished download.
+        // Install the index first. The reader already ignores entries whose
+        // WAV is absent, which makes every completed WAV immediately usable
+        // and visible even if the user cancels the remaining transfer.
         object progressGate = new();
         async Task DownloadWavAsync(CacheManifestFile file)
         {
@@ -51,6 +52,10 @@ internal sealed class CacheDownloadService
                 progress?.Report(new CacheDownloadProgress(completedFiles, pending.Count, completedBytes, totalBytes, file.FileName));
             }
         }
+        CacheManifestFile? index = pending.SingleOrDefault(IsIndex);
+        if (index is not null)
+            await DownloadWavAsync(index);
+
         // A small bounded parallelism makes thousands of short Drive downloads
         // practical, without flooding either the connection or Drive.
         using (SemaphoreSlim slots = new(4))
@@ -62,10 +67,6 @@ internal sealed class CacheDownloadService
                 finally { slots.Release(); }
             }).ToArray();
             await Task.WhenAll(downloads);
-        }
-        foreach (CacheManifestFile file in pending.Where(IsIndex))
-        {
-            await DownloadWavAsync(file);
         }
         progress?.Report(new CacheDownloadProgress(completedFiles, pending.Count, completedBytes, totalBytes, pending.Count == 0 ? "Optional cache is already up to date." : "Optional cache updated."));
         return new CacheDownloadResult(manifest.Version, pending.Count, totalBytes);
@@ -93,7 +94,7 @@ internal sealed class CacheDownloadService
             if (written != file.SizeBytes) throw new InvalidOperationException($"Incomplete download for {file.FileName}.");
             if (!string.Equals(await HashFileAsync(temporary, token), file.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException($"Integrity check failed for {file.FileName}.");
-            File.Move(temporary, destination, overwrite: true);
+            await MoveIntoPlaceAsync(temporary, destination, token);
         }
         finally
         {
@@ -106,6 +107,17 @@ internal sealed class CacheDownloadService
         string path = SafeDestination(file.FileName);
         if (!File.Exists(path) || new FileInfo(path).Length != file.SizeBytes) return false;
         return string.Equals(await HashFileAsync(path, token), file.Sha256, StringComparison.OrdinalIgnoreCase);
+    }
+    private static async Task MoveIntoPlaceAsync(string temporary, string destination, CancellationToken token)
+    {
+        // The companion can briefly read the same cache while it is being
+        // refreshed. Retry the final atomic replacement rather than turning a
+        // harmless transient file share into a failed/cancelled download.
+        for (int attempt = 0; ; attempt++)
+        {
+            try { File.Move(temporary, destination, overwrite: true); return; }
+            catch (IOException) when (attempt < 9) { await Task.Delay(75, token); }
+        }
     }
 
     private string SafeDestination(string fileName)
