@@ -36,6 +36,7 @@ internal sealed class MainForm : Form
     private string? lastSpokenTextKey;
     private int lastSpokenNode;
     private SubtitleSnapshot? latestSnapshot;
+    private SpeakerProfile? latestResolvedProfile;
     private SpeakerGender? unknownSpeakerGender;
     private readonly Dictionary<string, SpeakerGender> cachedUnknownGenderByLine = new(StringComparer.Ordinal);
     private int? pendingUnknownSpeakerNode;
@@ -135,6 +136,7 @@ internal sealed class MainForm : Form
             dialogueContextCleared = false;
 
             latestSnapshot = snapshot;
+            latestResolvedProfile = null;
             bool transientChoicePlaceholder = IsTransientChoicePlaceholder(snapshot.Text);
             bool currentIsMenu = snapshot.IsChoiceMenu || IsPossibleReplies(snapshot.Text) || transientChoicePlaceholder;
             UpdateActiveChoiceOptions(currentIsMenu ? snapshot.ChoiceOptions : []);
@@ -172,6 +174,7 @@ internal sealed class MainForm : Form
             AudioStatus currentStatus = suppressCurrent
                 ? new(AudioState.Unavailable, "Skipped: not a spoken subtitle.")
                 : voice.Status(currentProfile, snapshot.Text);
+            latestResolvedProfile = currentProfile;
             currentText.Text = suppressCurrent ? string.Empty : snapshot.Text;
             if (startsConversation) AppendLog(DiagnosticEvent.Create("conversation.start", ("node", snapshot.NodeId), ("speaker", currentProfile.CanonicalName), ("text", snapshot.Text), ("textHash", TextHash(snapshot.Text))));
 
@@ -541,6 +544,7 @@ internal sealed class MainForm : Form
     private async Task ResetAndRecoverAsync()
     {
         SubtitleSnapshot? snapshot = latestSnapshot;
+        SpeakerProfile? resolvedProfile = latestResolvedProfile;
         playback.Stop();
         lastPlaybackKey = string.Empty;
         lastSpokenTextKey = null;
@@ -550,7 +554,12 @@ internal sealed class MainForm : Form
         bool deletedAudio = false;
         if (snapshot is not null && snapshot.Text.Any(char.IsLetterOrDigit) && !snapshot.IsChoiceMenu && !IsPossibleReplies(snapshot.Text))
         {
-            SpeakerProfile profile = ResolveSubtitleProfile(snapshot.Speaker, snapshot.Text);
+            SpeakerProfile profile = resolvedProfile ?? ResolveSubtitleProfile(snapshot.Speaker, snapshot.Text);
+            // Use the actual resolved profile to delete the correct WAV, then
+            // deliberately forget an unnamed speaker's gender. A manual retake
+            // is the opportunity to correct a prior cached gender choice.
+            if (resolvedProfile is not null && SpeakerCatalog.IsQuestionOnlyPlaceholder(snapshot.Speaker) && !speakers.HasUnknownProfileMatch(snapshot.Speaker, snapshot.Text))
+                unknownSpeakerGender = null;
             deletedAudio = await voice.ResetAudioForRegenerationAsync(profile, snapshot.Text);
         }
         else
