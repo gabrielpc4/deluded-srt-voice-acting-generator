@@ -82,15 +82,21 @@ internal sealed class CacheDownloadService
         {
             using HttpResponseMessage response = await client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, token);
             response.EnsureSuccessStatusCode();
-            await using Stream input = await response.Content.ReadAsStreamAsync(token);
-            await using FileStream output = new(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 131072, useAsync: true);
-            byte[] buffer = new byte[131072]; long written = 0; int read;
-            while ((read = await input.ReadAsync(buffer, token)) > 0)
+            long written = 0;
+            await using (Stream input = await response.Content.ReadAsStreamAsync(token))
+            await using (FileStream output = new(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 131072, useAsync: true))
             {
-                await output.WriteAsync(buffer.AsMemory(0, read), token);
-                written += read; reportBytes(written);
+                byte[] buffer = new byte[131072]; int read;
+                while ((read = await input.ReadAsync(buffer, token)) > 0)
+                {
+                    await output.WriteAsync(buffer.AsMemory(0, read), token);
+                    written += read; reportBytes(written);
+                }
+                await output.FlushAsync(token);
             }
-            await output.FlushAsync(token);
+            // Both streams have closed before hashing/moving. On Windows a
+            // FileShare.None output stream prevents even this process from
+            // atomically replacing its temporary file.
             if (written != file.SizeBytes) throw new InvalidOperationException($"Incomplete download for {file.FileName}.");
             if (!string.Equals(await HashFileAsync(temporary, token), file.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException($"Integrity check failed for {file.FileName}.");
