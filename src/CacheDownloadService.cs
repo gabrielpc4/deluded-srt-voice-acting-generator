@@ -77,7 +77,10 @@ internal sealed class CacheDownloadService
         if (!Uri.TryCreate(file.DownloadUrl, UriKind.Absolute, out Uri? uri) || uri.Scheme != Uri.UriSchemeHttps)
             throw new InvalidOperationException($"Invalid download URL for {file.FileName}.");
         string destination = SafeDestination(file.FileName);
-        string temporary = destination + ".download-" + Guid.NewGuid().ToString("N") + ".tmp";
+        // Some historical cache filenames are deliberately descriptive and
+        // already close to the Windows path limit. Keep the temporary name
+        // short instead of appending a GUID to the long final filename.
+        string temporary = Path.Combine(cacheDirectory, ".download-" + Guid.NewGuid().ToString("N") + ".tmp");
         try
         {
             using HttpResponseMessage response = await client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, token);
