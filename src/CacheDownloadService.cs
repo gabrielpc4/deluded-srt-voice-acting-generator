@@ -17,7 +17,8 @@ internal sealed class CacheDownloadService
         using HttpResponseMessage response = await client.GetAsync(manifestUri, HttpCompletionOption.ResponseHeadersRead, token);
         response.EnsureSuccessStatusCode();
         await using Stream manifestStream = await response.Content.ReadAsStreamAsync(token);
-        CacheManifest? manifest = await JsonSerializer.DeserializeAsync<CacheManifest>(manifestStream, cancellationToken: token);
+        CacheManifest? manifest = await JsonSerializer.DeserializeAsync<CacheManifest>(manifestStream,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }, token);
         ValidateManifest(manifest);
 
         Directory.CreateDirectory(cacheDirectory);
