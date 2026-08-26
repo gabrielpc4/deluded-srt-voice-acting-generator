@@ -52,6 +52,7 @@ internal sealed class CastDialog : Form
         this.catalog = catalog; this.store = store; this.voiceService = voiceService; Text = "Cast voice profiles"; ClientSize = new Size(980, 600); MinimumSize = new Size(700, 480); StartPosition = FormStartPosition.CenterParent;
         voice.Items.AddRange(["", "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse", "marin", "cedar"]);
         names.Items.AddRange(catalog.Seeds.OrderBy(seed => seed.CanonicalName).Cast<object>().ToArray()); names.DisplayMember = nameof(SpeakerSeed.CanonicalName); names.SelectedIndexChanged += (_, _) => LoadSeed();
+        voice.SelectedIndexChanged += (_, _) => UpdatePreviewAvailability();
         preview.Click += async (_, _) => await PreviewAsync();
         stopPreview.Click += (_, _) => { previewCancellation?.Cancel(); previewPlayback.Stop(); };
         var previewControls = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Margin = new Padding(0, 8, 0, 0) };
@@ -77,11 +78,14 @@ internal sealed class CastDialog : Form
     {
         if (Selected is not { } seed) return;
         previewCancellation?.Cancel(); previewPlayback.Stop();
-        voice.SelectedItem = seed.PreferredVoice ?? ""; volume.Value = (decimal)Math.Clamp(seed.VolumeMultiplier ?? 1f, .25f, 2f); instructions.Text = seed.SpeechInstructions ?? "";
-        previewLine.Text = previewLines.Find(seed.CanonicalName) ?? "No bundled character preview line is available for this profile yet.";
+        string? line = previewLines.Find(seed.CanonicalName);
+        SpeakerProfile resolvedProfile = catalog.Resolve(seed.CanonicalName, line);
+        voice.SelectedItem = seed.PreferredVoice ?? resolvedProfile.Voice; volume.Value = (decimal)Math.Clamp(seed.VolumeMultiplier ?? 1f, .25f, 2f); instructions.Text = seed.SpeechInstructions ?? "";
+        previewLine.Text = line ?? "No bundled character preview line is available for this profile yet.";
         previewStatus.Text = string.Empty;
-        preview.Enabled = !string.IsNullOrWhiteSpace(previewLines.Find(seed.CanonicalName));
+        UpdatePreviewAvailability();
     }
+    private void UpdatePreviewAvailability() => preview.Enabled = Selected is { } seed && !string.IsNullOrWhiteSpace(previewLines.Find(seed.CanonicalName)) && !string.IsNullOrWhiteSpace(voice.Text);
     private void SaveSeed() { if (Selected is not { } seed) return; seed.PreferredVoice = string.IsNullOrWhiteSpace(voice.Text) ? null : voice.Text; seed.VolumeMultiplier = (float)volume.Value; seed.SpeechInstructions = string.IsNullOrWhiteSpace(instructions.Text) ? null : instructions.Text.Trim(); catalog.RebuildLookup(); store.SaveSeeds(new SpeakerSeedCollection { Speakers = catalog.Seeds.ToList() }); }
     private async Task PreviewAsync()
     {
@@ -104,6 +108,6 @@ internal sealed class CastDialog : Form
         }
         catch (OperationCanceledException) { previewStatus.Text = "Preview stopped."; }
         catch (Exception exception) { previewStatus.Text = exception.Message; }
-        finally { preview.Enabled = true; stopPreview.Enabled = false; }
+        finally { UpdatePreviewAvailability(); stopPreview.Enabled = false; }
     }
 }
