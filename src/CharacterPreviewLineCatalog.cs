@@ -14,6 +14,7 @@ internal sealed class CharacterPreviewLineCatalog
         ["Luis"] = "Soo... The key is to not show fear or make eye contact. Don't show teeth when smiling. Or is this a dog thing?",
         ["Violet"] = "How could I not make it? You're my cuddlebug. You've been ignoring me lately, but unlike some people, I don't forget my friends.",
         ["Ava"] = "Did you take classes to learn how to play such a convincing fool? I couldn't do it that well. And I'm an actress!",
+        ["Alexis"] = "We're here to rob the royal treasury.",
         ["Mr. Alan"] = "By the way, if your daddy wants to chase me away, this gazebo is technically not your property. I'm familiar with the house plan!",
         ["Adelina"] = "House with a voice is a house with a past. Listen, Alisa, what does it want to tell you?",
         ["Agatha"] = "We order it beforehand, so I was surprised about the box. I think it was something different. I bought treatment!",

@@ -94,9 +94,9 @@
     },
     {
       "CanonicalName": "Alexis",
-      "Gender": "Female",
+      "Gender": "Male",
       "PreferredVoice": null,
-      "SpeechInstructions": "Use a distinct, natural female conversational performance with clean pacing and believable reactions. The reviewed corpus provides too little reliable dialogue to assign stronger traits, so follow the line's emotion without inventing a biography, accent, or fixed attitude.",
+      "SpeechInstructions": "Play Alexis as a quick-witted male rogue with the controlled confidence of a practiced thief. He is dry, irreverent, and casually teasing, often using bold innuendo or a wry aside to keep control of the moment. Make explanations brisk and clear, with a worldly, conspiratorial ease rather than grand heroics. When a plan goes wrong or danger closes in, let that polish crack into sharp impatience, startled urgency, or annoyed disbelief, then recover quickly. Keep his rhythm agile, expressive, and self-assured; never make him soft, timid, or flat.",
       "Aliases": [
         "alexis"
       ]
