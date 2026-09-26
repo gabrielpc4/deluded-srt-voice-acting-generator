@@ -2,6 +2,10 @@ using System.Text.Json;
 
 internal sealed class MainForm : Form
 {
+    // Keep the narration log at its established working width while giving
+    // the cache manager enough horizontal room for its URL and long entries.
+    private const int DefaultLogPaneWidth = 1360;
+    private const int DefaultCachePaneWidth = 700;
     private const int UnknownMaleHotkeyId = 2;
     private const int UnknownFemaleHotkeyId = 3;
     private const int WmHotkey = 0x0312;
@@ -67,7 +71,7 @@ internal sealed class MainForm : Form
         voice = new VoiceService(settings);
         cachePanel = new CacheManagementPanel(settings, settingsStore, voice);
         Text = "Deluded Voice Acting Generator";
-        ClientSize = new Size(1760, 720);
+        ClientSize = new Size(2100, 720);
         MinimumSize = new Size(1000, 560);
         StartPosition = FormStartPosition.CenterScreen;
 
@@ -82,10 +86,20 @@ internal sealed class MainForm : Form
         subtitles.Controls.Add(SubtitlePanel("Current Subtitle", currentText), 0, 0);
         subtitles.Controls.Add(SubtitlePanel("Next Subtitle", nextText), 1, 0);
         root.Controls.Add(subtitles, 0, 1);
-        var lowerSplit = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6 };
+        var lowerSplit = new SplitContainer
+        {
+            Dock = DockStyle.Fill,
+            SplitterWidth = 6,
+            Panel1MinSize = 500,
+            Panel2MinSize = 400
+        };
         lowerSplit.Panel1.Controls.Add(log);
         lowerSplit.Panel2.Controls.Add(cachePanel);
-        lowerSplit.SplitterDistance = ClientSize.Width / 2;
+        // This is reapplied after WinForms has performed its DPI-aware layout.
+        // Setting it during construction alone can be overridden or clipped by
+        // a high-DPI monitor's initial layout pass.
+        lowerSplit.SplitterDistance = DefaultLogPaneWidth;
+        Shown += (_, _) => SetDefaultCachePaneWidth(lowerSplit);
         root.Controls.Add(lowerSplit, 0, 2);
         MenuStrip menu = CreateMenus();
         var shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
@@ -110,6 +124,21 @@ internal sealed class MainForm : Form
         timer.Start();
         FormClosed += (_, _) => { timer.Stop(); UnregisterUnknownChoiceHotkeys(); cachePanel.Dispose(); playback.Dispose(); reader.Dispose(); voice.Dispose(); };
         AppendLog($"Companion started. File log: {activityLog.CurrentPath}");
+    }
+
+    private static void SetDefaultCachePaneWidth(SplitContainer split)
+    {
+        int availableWidth = split.ClientSize.Width - split.SplitterWidth;
+        if (availableWidth <= 0) return;
+
+        int desiredCacheWidth = Math.Clamp(
+            DefaultCachePaneWidth,
+            split.Panel2MinSize,
+            Math.Max(split.Panel2MinSize, availableWidth - split.Panel1MinSize));
+        split.SplitterDistance = Math.Clamp(
+            availableWidth - desiredCacheWidth,
+            split.Panel1MinSize,
+            Math.Max(split.Panel1MinSize, availableWidth - split.Panel2MinSize));
     }
 
     private Task TickAsync()
