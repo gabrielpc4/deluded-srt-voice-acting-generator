@@ -89,16 +89,13 @@ internal sealed class MainForm : Form
         var lowerSplit = new SplitContainer
         {
             Dock = DockStyle.Fill,
-            SplitterWidth = 6,
-            Panel1MinSize = 500,
-            Panel2MinSize = 400
+            SplitterWidth = 6
         };
         lowerSplit.Panel1.Controls.Add(log);
         lowerSplit.Panel2.Controls.Add(cachePanel);
         // This is reapplied after WinForms has performed its DPI-aware layout.
         // Setting it during construction alone can be overridden or clipped by
         // a high-DPI monitor's initial layout pass.
-        lowerSplit.SplitterDistance = DefaultLogPaneWidth;
         Shown += (_, _) => SetDefaultCachePaneWidth(lowerSplit);
         root.Controls.Add(lowerSplit, 0, 2);
         MenuStrip menu = CreateMenus();
@@ -131,14 +128,8 @@ internal sealed class MainForm : Form
         int availableWidth = split.ClientSize.Width - split.SplitterWidth;
         if (availableWidth <= 0) return;
 
-        int desiredCacheWidth = Math.Clamp(
-            DefaultCachePaneWidth,
-            split.Panel2MinSize,
-            Math.Max(split.Panel2MinSize, availableWidth - split.Panel1MinSize));
-        split.SplitterDistance = Math.Clamp(
-            availableWidth - desiredCacheWidth,
-            split.Panel1MinSize,
-            Math.Max(split.Panel1MinSize, availableWidth - split.Panel2MinSize));
+        int desiredCacheWidth = Math.Min(DefaultCachePaneWidth, availableWidth);
+        split.SplitterDistance = Math.Max(0, availableWidth - desiredCacheWidth);
     }
 
     private Task TickAsync()
