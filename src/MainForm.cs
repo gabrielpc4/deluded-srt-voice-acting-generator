@@ -5,7 +5,7 @@ internal sealed class MainForm : Form
     // Keep the narration log at its established working width while giving
     // the cache manager enough horizontal room for its URL and long entries.
     private const int DefaultLogPaneWidth = 1360;
-    private const int DefaultCachePaneWidth = 700;
+    private const int DefaultCachePaneWidth = 1400;
     private const int UnknownMaleHotkeyId = 2;
     private const int UnknownFemaleHotkeyId = 3;
     private const int WmHotkey = 0x0312;
@@ -71,7 +71,7 @@ internal sealed class MainForm : Form
         voice = new VoiceService(settings);
         cachePanel = new CacheManagementPanel(settings, settingsStore, voice);
         Text = "Deluded Voice Acting Generator";
-        ClientSize = new Size(2100, 720);
+        ClientSize = new Size(2800, 720);
         MinimumSize = new Size(1000, 560);
         StartPosition = FormStartPosition.CenterScreen;
 
