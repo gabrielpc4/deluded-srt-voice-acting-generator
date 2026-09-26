@@ -2,10 +2,9 @@ using System.Text.Json;
 
 internal sealed class MainForm : Form
 {
-    // Keep the narration log at its established working width while giving
-    // the cache manager enough horizontal room for its URL and long entries.
-    private const int DefaultLogPaneWidth = 1360;
-    private const int DefaultCachePaneWidth = 1400;
+    // Open both lower panes at the same generous width, so long cache entries
+    // and the narration log remain equally readable.
+    private const int DefaultLowerPaneWidth = 1400;
     private const int UnknownMaleHotkeyId = 2;
     private const int UnknownFemaleHotkeyId = 3;
     private const int WmHotkey = 0x0312;
@@ -71,7 +70,7 @@ internal sealed class MainForm : Form
         voice = new VoiceService(settings);
         cachePanel = new CacheManagementPanel(settings, settingsStore, voice);
         Text = "Deluded Voice Acting Generator";
-        ClientSize = new Size(2800, 720);
+        ClientSize = new Size((DefaultLowerPaneWidth * 2) + 34, 720);
         MinimumSize = new Size(1000, 560);
         StartPosition = FormStartPosition.CenterScreen;
 
@@ -128,8 +127,7 @@ internal sealed class MainForm : Form
         int availableWidth = split.ClientSize.Width - split.SplitterWidth;
         if (availableWidth <= 0) return;
 
-        int desiredCacheWidth = Math.Min(DefaultCachePaneWidth, availableWidth);
-        split.SplitterDistance = Math.Max(0, availableWidth - desiredCacheWidth);
+        split.SplitterDistance = availableWidth / 2;
     }
 
     private Task TickAsync()
