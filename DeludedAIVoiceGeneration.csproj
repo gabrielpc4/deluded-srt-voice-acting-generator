@@ -7,6 +7,7 @@
     <AssemblyName>DeludedVoiceActingGenerator</AssemblyName>
     <Product>Deluded Voice Acting Generator</Product>
     <Version>1.1.0</Version>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>

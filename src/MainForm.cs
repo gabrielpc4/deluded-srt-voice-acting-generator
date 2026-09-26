@@ -21,7 +21,7 @@ internal sealed class MainForm : Form
     private readonly TextBox nextText = TextFor();
     private readonly TextBox apiKeyText = new() { Dock = DockStyle.Fill, PlaceholderText = "OpenAI API key" };
     private readonly Button apiKeyButton = new() { AutoSize = true, Margin = new Padding(7, 0, 0, 0) };
-    private readonly NumericUpDown subtitleStartDelay = new() { Minimum = 0, Maximum = 10_000, Increment = 25, Width = 72 };
+    private readonly NumericUpDown subtitleStartDelay = new() { Minimum = 0, Maximum = 10_000, Increment = 25, Width = 88 };
     private readonly Button subtitleStartDelayButton = new() { AutoSize = true, Text = "Save delay", Margin = new Padding(7, 0, 0, 0) };
     private readonly TextBox log = new() { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, BackColor = Color.FromArgb(24, 24, 24), ForeColor = Color.Gainsboro, Font = new Font("Consolas", 9) };
     private readonly ActivityLog activityLog = new();
@@ -57,6 +57,8 @@ internal sealed class MainForm : Form
     public MainForm(Settings settings, SettingsStore settingsStore, SpeakerCatalog speakers)
     {
         AutoScaleMode = AutoScaleMode.Dpi;
+        AutoScaleDimensions = new SizeF(96F, 96F);
+        AutoScroll = true;
         this.settings = settings;
         this.settingsStore = settingsStore;
         this.speakers = speakers;
@@ -71,10 +73,10 @@ internal sealed class MainForm : Form
 
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(14, 0, 14, 14), ColumnCount = 1, RowCount = 3 };
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 104));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.Controls.Add(ApiKeyPanel(), 0, 0);
-        var subtitles = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
+        var subtitles = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, RowCount = 1, MinimumSize = new Size(0, 104) };
         subtitles.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         subtitles.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         subtitles.Controls.Add(SubtitlePanel("Current Subtitle", currentText), 0, 0);
@@ -740,7 +742,7 @@ internal sealed class MainForm : Form
         return words.Length <= 7 ? normalized : string.Join(' ', words.Take(7)) + "...";
     }
 
-    private static TextBox TextFor() => new() { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Font = new Font("Segoe UI", 8), BackColor = SystemColors.Window, Margin = new Padding(0, 0, 7, 0) };
+    private static TextBox TextFor() => new() { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Font = new Font("Segoe UI", 8), BackColor = SystemColors.Window, Margin = new Padding(0, 0, 7, 0), MinimumSize = new Size(0, 72) };
     private Control ApiKeyPanel()
     {
         var panel = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 8, RowCount = 1, Margin = new Padding(0, 3, 0, 3) };

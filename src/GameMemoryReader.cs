@@ -7,14 +7,34 @@ using System.Text.RegularExpressions;
 internal sealed record SubtitleCandidate(int NodeId, string Speaker, string Text, string Detail, bool IsExact);
 internal sealed record SubtitleSnapshot(int NodeId, string Speaker, string Text, SubtitleCandidate? Next, string Status, bool IsChoiceMenu, IReadOnlyList<string> ChoiceOptions);
 internal sealed record WidgetAddressCache(long TextBlock, long SpeakerBlock, long Owner);
+internal sealed record GameMemoryLayout(
+    string Name, long ObjArray, long NamePool, long STextVtable,
+    long GenArg, long GenBase, long Localized, long StringTable,
+    long VariableText, int VariableTextOffset,
+    string DialogueTextName, string SpeakerTextName, string TextClassName);
 
 internal sealed class GameMemoryReader : IDisposable
 {
-    // Deluded 0.5.0, SRTE-Win64-Shipping.exe. Re-validate these per game build.
-    private const long ObjArray = 0x5BD4368, NamePool = 0x5DA5E80, STextVtable = 0x4F3FA28;
-    private const long GenArg = 0x4EB6AD8, GenBase = 0x4EB30A0, Localized = 0x4EB30F0, StringTable = 0x4EB3140;
+    // Profiles are selected by validating Unreal's object array and name pool
+    // in the live process. The executable name is deliberately not involved.
+    private static readonly GameMemoryLayout[] KnownLayouts =
+    [
+        new("Deluded 0.5.50", 0x5475B38, 0x545D540, 0x3DCE7A8, 0x3D47498, 0x3D45D20, 0x3D45CD0, 0x3D45D70, 0x3D473F8, 0x88, "TBV_Dialogue_Text", "TBV_InterlocutorName_Text", "SRTE_VarTextBlock"),
+        new("Deluded 0.5.0", 0x5BD4368, 0x5DA5E80, 0x4F3FA28, 0x4EB6AD8, 0x4EB30A0, 0x4EB30F0, 0x4EB3140, 0, 0, "TB_Dialogue_Text", "TB_InterlocutorName_Text", "TextBlock")
+    ];
+    private GameMemoryLayout? memoryLayout;
+    private long ObjArray => memoryLayout!.ObjArray;
+    private long NamePool => memoryLayout!.NamePool;
+    private long STextVtable => memoryLayout!.STextVtable;
+    private long GenArg => memoryLayout!.GenArg;
+    private long GenBase => memoryLayout!.GenBase;
+    private long Localized => memoryLayout!.Localized;
+    private long StringTable => memoryLayout!.StringTable;
+    private long VariableText => memoryLayout!.VariableText;
+    private int VariableTextOffset => memoryLayout!.VariableTextOffset;
     private IntPtr handle; private long imageBase; private long textBlock, speakerBlock, owner; private readonly string processName;
     private Process? process; private IntPtr gameWindowHandle; private DateTime nextProcessRefreshUtc;
+    private DateTime nextLayoutProbeUtc;
     private long discoveryChunks;
     private int discoveryCount, discoveryFrontIndex, discoveryBackIndex;
     private const int PriorityObjectsPerPoll = 1024;
@@ -92,6 +112,7 @@ internal sealed class GameMemoryReader : IDisposable
     {
         if (handle != IntPtr.Zero) Native.CloseHandle(handle);
         handle = IntPtr.Zero;
+        memoryLayout = null;
         textBlock = speakerBlock = owner = 0;
         widgetValid = false;
         discoveryRequested = false;
@@ -160,72 +181,150 @@ internal sealed class GameMemoryReader : IDisposable
     {
         try
         {
-            if (handle != IntPtr.Zero && ReadPtr(imageBase + ObjArray) != 0) return true;
-            if (handle != IntPtr.Zero) Report("reader.attach.lost", ("imageBase", $"0x{imageBase:x}"), ("objectArrayAddress", $"0x{imageBase + ObjArray:x}"));
+            if (handle != IntPtr.Zero && process is not null && !process.HasExited)
+            {
+                // Normal polling performs one pointer read. Full profile
+                // validation is reserved for attach/recovery so the game is
+                // not burdened with several memory reads every 16 ms.
+                if (memoryLayout is not null && ReadPtr(imageBase + memoryLayout.ObjArray + 0x10) != 0) return true;
+                if (DateTime.UtcNow < nextLayoutProbeUtc) return false;
+                nextLayoutProbeUtc = DateTime.UtcNow.AddSeconds(1);
+                if (TrySelectMemoryLayout()) return true;
+                int previousProcessId = process.Id;
+                RefreshProcessIfNeeded(force: true);
+                if (process is null || process.Id != previousProcessId)
+                {
+                    Native.CloseHandle(handle);
+                    handle = IntPtr.Zero;
+                    memoryLayout = null;
+                    textBlock = speakerBlock = owner = 0;
+                    ResetDiscovery(); ResetObjectInventory(); widgetValid = false;
+                    return EnsureAttached();
+                }
+                Report("reader.layout.unsupported", ("processId", process.Id), ("path", TryGetProcessPath(process)));
+                return false;
+            }
+            if (handle != IntPtr.Zero) Report("reader.attach.lost", ("imageBase", $"0x{imageBase:x}"), ("processId", process?.Id));
             if (handle != IntPtr.Zero) Native.CloseHandle(handle);
             bool requestWasPending = discoveryRequested;
-            handle = IntPtr.Zero; textBlock = speakerBlock = owner = 0; ResetDiscovery(); ResetObjectInventory(); widgetValid = false; discoveryRequested = requestWasPending;
-            RefreshProcessIfNeeded(force: true);
+            handle = IntPtr.Zero; memoryLayout = null; textBlock = speakerBlock = owner = 0; ResetDiscovery(); ResetObjectInventory(); widgetValid = false; discoveryRequested = requestWasPending;
+            RefreshProcessIfNeeded();
             if (process is null) { Report("reader.attach.failed", ("reason", "process_not_found"), ("process", processName)); return false; }
             imageBase = process.MainModule?.BaseAddress.ToInt64() ?? 0;
             handle = Native.OpenProcess(Native.PROCESS_VM_READ | Native.PROCESS_QUERY_INFORMATION, false, process.Id);
             textBlockClassCache.Clear();
             fNameCache.Clear();
             bool attached = handle != IntPtr.Zero && imageBase != 0;
-            Report(attached ? "reader.attach.ok" : "reader.attach.failed", ("processId", process.Id), ("imageBase", $"0x{imageBase:x}"), ("handle", $"0x{handle.ToInt64():x}"));
-            if (attached) { RestoreCachedWidget(); StartObjectInventoryIfNeeded(); }
-            return attached;
+            if (!attached)
+            {
+                Report("reader.attach.failed", ("processId", process.Id), ("path", TryGetProcessPath(process)), ("imageBase", $"0x{imageBase:x}"), ("handle", $"0x{handle.ToInt64():x}"));
+                return false;
+            }
+            Report("reader.attach.ok", ("processId", process.Id), ("path", TryGetProcessPath(process)), ("imageBase", $"0x{imageBase:x}"), ("handle", $"0x{handle.ToInt64():x}"));
+            if (!TrySelectMemoryLayout())
+            {
+                nextLayoutProbeUtc = DateTime.UtcNow.AddSeconds(1);
+                Report("reader.layout.unsupported", ("processId", process.Id), ("path", TryGetProcessPath(process)));
+                return false;
+            }
+            RestoreCachedWidget();
+            StartObjectInventoryIfNeeded();
+            return true;
         }
         catch (Exception exception)
         {
             Report("reader.attach.failed", ("reason", "exception"), ("error", exception.Message));
             if (handle != IntPtr.Zero) Native.CloseHandle(handle);
-            handle = IntPtr.Zero; textBlock = speakerBlock = owner = 0; ResetDiscovery(); ResetObjectInventory(); widgetValid = false;
+            handle = IntPtr.Zero; memoryLayout = null; textBlock = speakerBlock = owner = 0; ResetDiscovery(); ResetObjectInventory(); widgetValid = false;
             return false;
         }
     }
+
+    private bool TrySelectMemoryLayout()
+    {
+        foreach (GameMemoryLayout candidate in KnownLayouts)
+        {
+            if (!IsLayoutValid(candidate)) continue;
+            if (!Equals(memoryLayout, candidate))
+                Report("reader.layout.selected", ("layout", candidate.Name), ("objectArray", $"0x{candidate.ObjArray:x}"), ("namePool", $"0x{candidate.NamePool:x}"));
+            memoryLayout = candidate;
+            return true;
+        }
+        memoryLayout = null;
+        return false;
+    }
+
+    private bool IsLayoutValid(GameMemoryLayout candidate)
+    {
+        long chunks = ReadPtr(imageBase + candidate.ObjArray + 0x10);
+        int count = ReadI32(imageBase + candidate.ObjArray + 0x24);
+        if (chunks == 0 || count is < 1_000 or > 10_000_000) return false;
+        long firstChunk = ReadPtr(chunks);
+        if (firstChunk == 0 || ReadPtr(firstChunk) == 0) return false;
+        long firstNameBlock = ReadPtr(imageBase + candidate.NamePool + 0x10);
+        if (firstNameBlock == 0) return false;
+        ushort header = ReadU16(firstNameBlock);
+        int length = header >> 6;
+        if (length is < 1 or > 32) return false;
+        byte[] bytes = ReadBytes(firstNameBlock + 2, length * ((header & 1) != 0 ? 2 : 1));
+        string firstName = (header & 1) != 0 ? Encoding.Unicode.GetString(bytes) : Encoding.Latin1.GetString(bytes);
+        return firstName == "None";
+    }
     private void RefreshProcessIfNeeded(bool force = false)
     {
-        if (!force && DateTime.UtcNow < nextProcessRefreshUtc && process is not null && !process.HasExited) return;
+        if (!force && DateTime.UtcNow < nextProcessRefreshUtc)
+        {
+            if (process is null) return;
+            try { if (!process.HasExited) return; } catch { }
+        }
         nextProcessRefreshUtc = DateTime.UtcNow.AddSeconds(1);
-        Process[] candidates = Process.GetProcessesByName(processName);
-        if (candidates.Length > 1)
+        List<(Process Process, int Score, string Path)> candidates = [];
+        foreach (Process candidate in Process.GetProcesses())
         {
-            Process newest = candidates.OrderByDescending(candidate => candidate.StartTime).First();
-            foreach (Process older in candidates.Where(candidate => candidate.Id != newest.Id))
-            {
-                try
-                {
-                    DateTime started = older.StartTime;
-                    older.Kill();
-                    older.WaitForExit(2_000);
-                    Report("reader.process.older_terminated", ("processId", older.Id), ("started", started.ToUniversalTime().ToString("O")), ("keptProcessId", newest.Id));
-                }
-                catch (Exception exception) { Report("reader.process.older_termination_failed", ("processId", older.Id), ("error", exception.Message)); }
-                finally { older.Dispose(); }
-            }
-            if (process is null || process.Id != newest.Id)
-            {
-                if (handle != IntPtr.Zero) Native.CloseHandle(handle);
-                handle = IntPtr.Zero; textBlock = speakerBlock = owner = 0; widgetValid = false;
-                ResetDiscovery(); ResetObjectInventory();
-                process?.Dispose();
-                process = newest;
-            }
-            else newest.Dispose();
+            string? path = TryGetProcessPath(candidate);
+            int score = path is null ? 0 : ScoreGameExecutable(path);
+            if (score == 0 && string.Equals(candidate.ProcessName, processName, StringComparison.OrdinalIgnoreCase)) score = 100;
+            if (score > 0 && path is not null) candidates.Add((candidate, score, path));
+            else candidate.Dispose();
         }
-        else
+        (Process Process, int Score, string Path)? selected = candidates.Count == 0 ? null : candidates
+            .OrderByDescending(candidate => candidate.Score)
+            .ThenByDescending(candidate => SafeStartTime(candidate.Process))
+            .First();
+        foreach ((Process candidate, _, _) in candidates)
+            if (selected is null || candidate.Id != selected.Value.Process.Id) candidate.Dispose();
+        Process? discovered = selected?.Process;
+        if (process is null || process.HasExited || discovered is null || process.Id != discovered.Id)
         {
-            Process? discovered = candidates.FirstOrDefault();
-            if (process is null || process.HasExited || discovered is null || process.Id != discovered.Id)
-            {
-                process?.Dispose();
-                process = discovered;
-            }
-            else discovered?.Dispose();
+            process?.Dispose();
+            process = discovered;
         }
+        else discovered?.Dispose();
         gameWindowHandle = process?.MainWindowHandle ?? IntPtr.Zero;
     }
+
+    private static DateTime SafeStartTime(Process process) { try { return process.StartTime; } catch { return DateTime.MinValue; } }
+    private static string? TryGetProcessPath(Process process) { try { return process.MainModule?.FileName; } catch { return null; } }
+    private static int ScoreGameExecutable(string executablePath)
+    {
+        try
+        {
+            string fullPath = Path.GetFullPath(executablePath);
+            DirectoryInfo? directory = Directory.GetParent(fullPath);
+            if (directory is null) return 0;
+            if (directory.Name.Equals("Win64", StringComparison.OrdinalIgnoreCase) &&
+                directory.Parent?.Name.Equals("Binaries", StringComparison.OrdinalIgnoreCase) == true &&
+                IsGameRoot(directory.Parent.Parent?.Parent?.FullName)) return 400;
+            if ((directory.Name.Equals("Bin", StringComparison.OrdinalIgnoreCase) || directory.Name.Equals("Binaries", StringComparison.OrdinalIgnoreCase)) &&
+                IsGameRoot(directory.Parent?.FullName)) return 350;
+            if (IsGameRoot(directory.FullName)) return 250;
+        }
+        catch { }
+        return 0;
+    }
+    private static bool IsGameRoot(string? path) =>
+        !string.IsNullOrWhiteSpace(path) && Directory.Exists(Path.Combine(path, "Engine")) &&
+        (Directory.Exists(Path.Combine(path, "SRTE")) || Directory.EnumerateFiles(path, "*.manifest", SearchOption.TopDirectoryOnly).Any());
     private bool DiscoverSlice()
     {
         if (discoveryChunks == 0)
@@ -281,18 +380,19 @@ internal sealed class GameMemoryReader : IDisposable
         if (classObject == 0) { ReportCandidateState(objectIndex, "class_null", reportState); return false; }
         if (!textBlockClassCache.TryGetValue(classObject, out bool isTextBlock))
         {
-            isTextBlock = Name(classObject) == "TextBlock";
+            string className = Name(classObject);
+            isTextBlock = className == memoryLayout!.TextClassName || className == "TextBlock";
             textBlockClassCache[classObject] = isTextBlock;
         }
         if (!isTextBlock) { ReportCandidateState(objectIndex, "class_not_text_block", reportState); return false; }
         textClassMatches++;
-        if (Name(obj) != "TB_Dialogue_Text") { ReportCandidateState(objectIndex, "name_changed", reportState); return false; }
+        if (Name(obj) != memoryLayout!.DialogueTextName) { ReportCandidateState(objectIndex, "name_changed", reportState); return false; }
         textNameMatches++;
         long slate = ReadPtr(obj + 0x298); if (slate == 0 || ReadPtr(slate) != imageBase + STextVtable) { ReportCandidateState(objectIndex, "slate_not_live", reportState); return false; }
         slateMatches++;
         long tree = ReadPtr(obj + 0x20), candidateOwner = tree == 0 ? 0 : ReadPtr(tree + 0x20); if (candidateOwner == 0 || !Name(candidateOwner).StartsWith("W_FLIXXX_DIALOGUE_G_SHPAKUS_C", StringComparison.Ordinal) || Name(ReadPtr(candidateOwner + 0x10)) != "W_FLIXXX_DIALOGUE_G_SHPAKUS_C") { ReportCandidateState(objectIndex, "owner_not_dialogue_widget", reportState); return false; }
         ownerMatches++;
-        long candidateSpeaker = ReadPtr(candidateOwner + 0x2F0); if (candidateSpeaker == 0 || Name(candidateSpeaker) != "TB_InterlocutorName_Text") { ReportCandidateState(objectIndex, "speaker_not_found", reportState); return false; }
+        long candidateSpeaker = ReadPtr(candidateOwner + 0x2F0); if (candidateSpeaker == 0 || Name(candidateSpeaker) != memoryLayout!.SpeakerTextName) { ReportCandidateState(objectIndex, "speaker_not_found", reportState); return false; }
         candidateStates.Remove(objectIndex);
         textBlock = obj; speakerBlock = candidateSpeaker; owner = candidateOwner; SaveCachedWidget(); Report("reader.discovery.found", ("objectIndex", objectIndex), ("direction", direction), ("textBlock", $"0x{textBlock:x}"), ("owner", $"0x{owner:x}")); ResetDiscovery(); widgetValid = true; discoveryRequested = false; fullFallbackRequested = false; return true;
     }
@@ -356,7 +456,8 @@ internal sealed class GameMemoryReader : IDisposable
         inventoryProcessId = process.Id;
         int processId = process.Id; long baseAddress = imageBase;
         if (!HasValidWidget) nextObjectInventoryStartTimestamp = now + Stopwatch.Frequency;
-        objectInventoryTask = Task.Run(() => ObjectInventoryResult.Scan(processId, baseAddress, 0, currentCount));
+        GameMemoryLayout layout = memoryLayout!;
+        objectInventoryTask = Task.Run(() => ObjectInventoryResult.Scan(processId, baseAddress, layout, 0, currentCount));
     }
     private void UpdateObjectInventory()
     {
@@ -420,10 +521,10 @@ internal sealed class GameMemoryReader : IDisposable
         {
             WidgetAddressCache? cached = LoadPersistedWidgetCache();
             if (cached is null || cached.TextBlock == 0 || cached.SpeakerBlock == 0 || cached.Owner == 0) return false;
-            bool valid = Name(cached.TextBlock) == "TB_Dialogue_Text"
-                && Name(ReadPtr(cached.TextBlock + 0x10)) == "TextBlock"
+            bool valid = Name(cached.TextBlock) == memoryLayout!.DialogueTextName
+                && Name(ReadPtr(cached.TextBlock + 0x10)) == memoryLayout.TextClassName
                 && ReadTextBlock(cached.TextBlock) is not null
-                && Name(cached.SpeakerBlock) == "TB_InterlocutorName_Text"
+                && Name(cached.SpeakerBlock) == memoryLayout.SpeakerTextName
                 && ReadTextBlock(cached.SpeakerBlock) is not null
                 && Name(cached.Owner).StartsWith("W_FLIXXX_DIALOGUE_G_SHPAKUS_C", StringComparison.Ordinal)
                 && ReadPtr(cached.Owner + 0x2F0) == cached.SpeakerBlock;
@@ -510,7 +611,7 @@ internal sealed class GameMemoryReader : IDisposable
     private static bool Equivalent(string a, string b) => string.Join(' ', a.Trim('"').Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).Equals(string.Join(' ', b.Trim('"').Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)), StringComparison.OrdinalIgnoreCase);
     private static string Speaker(Node n, string protagonist, string interlocutor) => n.Override.Length > 0 ? n.Override : n.Type <= 2 ? protagonist : n.Type == 3 ? (interlocutor.Length > 0 ? interlocutor : "NPC") : "";
     private string? ReadTextBlock(long block) { long slate = ReadPtr(block + 0x298); return slate == 0 || ReadPtr(slate) != imageBase + STextVtable ? null : ReadText(slate + 0x2B0); }
-    private string? ReadText(long a) { long d = ReadPtr(a); if (d == 0) return ""; long rva = ReadPtr(d) - imageBase; if (rva == GenArg) return ReadFString(d + 0x48); if (rva == GenBase) return ReadFString(d + 0x38); if (rva == Localized) return ReadFString(ReadPtr(d + 8)); if (rva == StringTable) { long refs = ReadPtr(d + 0x18), entry = refs == 0 ? 0 : ReadPtr(refs + 0x38); return entry == 0 ? null : ReadFString(ReadPtr(entry + 0x20)); } return null; }
+    private string? ReadText(long a) { long d = ReadPtr(a); if (d == 0) return ""; long rva = ReadPtr(d) - imageBase; if (VariableText != 0 && rva == VariableText) return ReadFString(d + VariableTextOffset); if (rva == GenArg) return ReadFString(d + 0x48); if (rva == GenBase) return ReadFString(d + 0x38); if (rva == Localized) return ReadFString(ReadPtr(d + 8)); if (rva == StringTable) { long refs = ReadPtr(d + 0x18), entry = refs == 0 ? 0 : ReadPtr(refs + 0x38); return entry == 0 ? null : ReadFString(ReadPtr(entry + 0x20)); } return null; }
     private string? ReadFString(long a) { long chars = ReadPtr(a); int n = ReadI32(a + 8), max = ReadI32(a + 12); if (n == 0) return ""; if (chars == 0 || n < 1 || n > 32768 || max < n || max > 1048576) return null; byte[] b = ReadBytes(chars, n * 2); return b.Length == n * 2 && BitConverter.ToUInt16(b, b.Length - 2) == 0 ? Encoding.Unicode.GetString(b, 0, b.Length - 2) : null; }
     private string Name(long obj) => obj == 0 ? "" : FName(ReadU32(obj + 0x18), ReadU32(obj + 0x1C));
     private string FName(uint index, uint number)
@@ -547,14 +648,14 @@ internal sealed class GameMemoryReader : IDisposable
     private sealed record Node(int Id, byte Type, string Text, string Override, int[] Links);
     private sealed record ObjectInventoryResult(int ProcessId, long ImageBase, int StartIndex, int EndIndex, int[] DialogueTextIndices, int[] ReplyTextIndices, long ElapsedMilliseconds)
     {
-        public static ObjectInventoryResult Scan(int processId, long imageBase, int startIndex, int endIndex)
+        public static ObjectInventoryResult Scan(int processId, long imageBase, GameMemoryLayout layout, int startIndex, int endIndex)
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             IntPtr inventoryHandle = Native.OpenProcess(Native.PROCESS_VM_READ | Native.PROCESS_QUERY_INFORMATION, false, processId);
             if (inventoryHandle == IntPtr.Zero) throw new InvalidOperationException("Unable to open the game for the object inventory.");
             try
             {
-                long chunks = ReadPtr(inventoryHandle, imageBase + ObjArray + 0x10);
+                long chunks = ReadPtr(inventoryHandle, imageBase + layout.ObjArray + 0x10);
                 if (chunks == 0) throw new InvalidOperationException("The UE object array is unavailable for the inventory.");
                 var dialogue = new List<int>(); var textBlocks = new List<(int Index, long Object, long Tree)>(); var replyWidgets = new HashSet<long>(); var names = new Dictionary<uint, string>();
                 for (int chunkIndex = startIndex / 0x10000; chunkIndex <= (endIndex - 1) / 0x10000; chunkIndex++)
@@ -567,12 +668,16 @@ internal sealed class GameMemoryReader : IDisposable
                         int offset = (index - chunkStart) * 0x18;
                         if (items.Length < offset + 8) continue;
                         long obj = BitConverter.ToInt64(items, offset); if (obj == 0) continue;
-                        string name = Name(inventoryHandle, imageBase, obj, names);
-                        if (name == "TB_Dialogue_Text") dialogue.Add(index);
+                        string name = Name(inventoryHandle, imageBase, layout.NamePool, obj, names);
+                        if (name == layout.DialogueTextName) dialogue.Add(index);
                         if (name.StartsWith("W_FLIXXX_DIALOGUE_G_REPLY_C", StringComparison.Ordinal)) replyWidgets.Add(obj);
                         long classObject = ReadPtr(inventoryHandle, obj + 0x10);
-                        if (classObject != 0 && Name(inventoryHandle, imageBase, classObject, names) == "TextBlock")
-                            textBlocks.Add((index, obj, ReadPtr(inventoryHandle, obj + 0x20)));
+                        if (classObject != 0)
+                        {
+                            string className = Name(inventoryHandle, imageBase, layout.NamePool, classObject, names);
+                            if (className == "TextBlock" || className == layout.TextClassName)
+                                textBlocks.Add((index, obj, ReadPtr(inventoryHandle, obj + 0x20)));
+                        }
                     }
                 }
                 int[] replyText = textBlocks.Where(block => block.Tree != 0 && replyWidgets.Contains(ReadPtr(inventoryHandle, block.Tree + 0x20))).Select(block => block.Index).ToArray();
@@ -580,20 +685,20 @@ internal sealed class GameMemoryReader : IDisposable
             }
             finally { Native.CloseHandle(inventoryHandle); }
         }
-        private static long ReadPtr(IntPtr handle, long address) => BitConverter.ToInt64(ReadBytes(handle, address, 8));
-        private static uint ReadU32(IntPtr handle, long address) => BitConverter.ToUInt32(ReadBytes(handle, address, 4));
-        private static ushort ReadU16(IntPtr handle, long address) => BitConverter.ToUInt16(ReadBytes(handle, address, 2));
+        private static long ReadPtr(IntPtr handle, long address) { byte[] bytes = ReadBytes(handle, address, 8); return bytes.Length == 8 ? BitConverter.ToInt64(bytes) : 0; }
+        private static uint ReadU32(IntPtr handle, long address) { byte[] bytes = ReadBytes(handle, address, 4); return bytes.Length == 4 ? BitConverter.ToUInt32(bytes) : 0; }
+        private static ushort ReadU16(IntPtr handle, long address) { byte[] bytes = ReadBytes(handle, address, 2); return bytes.Length == 2 ? BitConverter.ToUInt16(bytes) : (ushort)0; }
         private static byte[] ReadBytes(IntPtr handle, long address, int count)
         {
             byte[] buffer = new byte[count];
             return Native.ReadProcessMemory(handle, (IntPtr)address, buffer, count, out IntPtr received) && received.ToInt64() == count ? buffer : [];
         }
-        private static string Name(IntPtr handle, long imageBase, long obj, Dictionary<uint, string> names)
+        private static string Name(IntPtr handle, long imageBase, long namePool, long obj, Dictionary<uint, string> names)
         {
             uint index = ReadU32(handle, obj + 0x18), number = ReadU32(handle, obj + 0x1C);
             if (!names.TryGetValue(index, out string? value))
             {
-                long block = ReadPtr(handle, imageBase + NamePool + 0x10 + (index >> 16) * 8L); if (block == 0) return "";
+                long block = ReadPtr(handle, imageBase + namePool + 0x10 + (index >> 16) * 8L); if (block == 0) return "";
                 long entry = block + (index & 0xffff) * 2L; ushort header = ReadU16(handle, entry); int length = header >> 6;
                 if (length < 1 || length > 1023) return "";
                 byte[] bytes = ReadBytes(handle, entry + 2, length * ((header & 1) != 0 ? 2 : 1));

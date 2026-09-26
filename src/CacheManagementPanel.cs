@@ -26,24 +26,28 @@ internal sealed class CacheManagementPanel : UserControl
     public CacheManagementPanel(Settings settings, SettingsStore store, VoiceService voice)
     {
         this.settings = settings; this.store = store; this.voice = voice;
+        AutoScaleMode = AutoScaleMode.Dpi;
         Dock = DockStyle.Fill; Padding = new Padding(8, 0, 0, 0);
         manifestUrl.Text = settings.Cache.ManifestUrl;
 
-        var sourceRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, AutoSize = true };
-        sourceRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        sourceRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        sourceRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        sourceRow.Controls.Add(manifestUrl, 0, 0); sourceRow.Controls.Add(download, 1, 0); sourceRow.Controls.Add(cancelDownload, 2, 0);
+        var sourceArea = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, AutoSize = true, Margin = new Padding(0, 0, 0, 4) };
+        sourceArea.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        sourceArea.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        manifestUrl.Margin = new Padding(0, 0, 0, 4);
+        sourceArea.Controls.Add(manifestUrl, 0, 0);
+        var sourceButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true, Margin = new Padding(0) };
+        sourceButtons.Controls.Add(download); sourceButtons.Controls.Add(cancelDownload);
+        sourceArea.Controls.Add(sourceButtons, 0, 1);
         var actionRow = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false };
         actionRow.Controls.Add(play); actionRow.Controls.Add(delete);
 
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 35));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-        layout.Controls.Add(sourceRow, 0, 0); layout.Controls.Add(progress, 0, 1); layout.Controls.Add(progressText, 0, 2);
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.Controls.Add(sourceArea, 0, 0); layout.Controls.Add(progress, 0, 1); layout.Controls.Add(progressText, 0, 2);
         layout.Controls.Add(filter, 0, 3); layout.Controls.Add(entries, 0, 4); layout.Controls.Add(actionRow, 0, 5);
         Controls.Add(layout);
 
@@ -53,15 +57,15 @@ internal sealed class CacheManagementPanel : UserControl
         cancelDownload.Click += (_, _) => downloadCancellation?.Cancel();
         play.Click += async (_, _) => await PlaySelectedAsync();
         delete.Click += (_, _) => DeleteSelected();
-        voice.LogGenerated += OnVoiceLog;
-        Disposed += (_, _) => { downloadCancellation?.Cancel(); previewPlayback.Dispose(); voice.LogGenerated -= OnVoiceLog; };
+        voice.CacheChanged += OnCacheChanged;
+        Disposed += (_, _) => { downloadCancellation?.Cancel(); previewPlayback.Dispose(); voice.CacheChanged -= OnCacheChanged; };
         RefreshEntries();
     }
 
-    private void OnVoiceLog(object? sender, string message)
+    private void OnCacheChanged(object? sender, EventArgs eventArgs)
     {
-        if (message is not "Optional cache updated." and not "Cached audio deleted.") return;
-        if (!IsDisposed) BeginInvoke(RefreshEntries);
+        if (IsDisposed || Disposing || !IsHandleCreated) return;
+        BeginInvoke(RefreshEntries);
     }
     private void RefreshEntries()
     {
@@ -89,8 +93,6 @@ internal sealed class CacheManagementPanel : UserControl
     {
         download.Enabled = !downloading; cancelDownload.Enabled = downloading; manifestUrl.Enabled = !downloading;
         filter.Visible = !downloading; progress.Visible = downloading; progressText.Visible = downloading;
-        layout.RowStyles[1].Height = downloading ? 22 : 0;
-        layout.RowStyles[2].Height = downloading ? 22 : 0;
     }
     private async Task DownloadAsync()
     {

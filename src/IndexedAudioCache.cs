@@ -127,13 +127,13 @@ internal sealed class IndexedAudioCache
             SaveIndex();
         }
     }
-    public void Save(IndexedAudioLookup lookup, byte[] pcm, string transcript, bool inspectionAttempted = true)
+    public bool Save(IndexedAudioLookup lookup, byte[] pcm, string transcript, bool inspectionAttempted = true)
     {
-        if (!lookup.IsValid || pcm.Length == 0) return;
+        if (!lookup.IsValid || pcm.Length == 0) return false;
         lock (gate)
         {
             EnsureLoaded();
-            if (entryByKey.TryGetValue(lookup.Key, out IndexedAudioEntry? existing) && File.Exists(Path.Combine(directory, existing.AudioFileName))) return;
+            if (entryByKey.TryGetValue(lookup.Key, out IndexedAudioEntry? existing) && File.Exists(Path.Combine(directory, existing.AudioFileName))) return false;
             Directory.CreateDirectory(directory);
             string fileName = BuildFileName(lookup, entryByKey.Values.Select(entry => entry.AudioFileName));
             using FileStream stream = File.Create(Path.Combine(directory, fileName));
@@ -141,6 +141,7 @@ internal sealed class IndexedAudioCache
             writer.Write(pcm, 0, pcm.Length);
             entryByKey[lookup.Key] = new IndexedAudioEntry { Key = lookup.Key, Speaker = lookup.Speaker, Subtitle = lookup.Subtitle, AudioFileName = fileName, CreatedUtc = DateTimeOffset.UtcNow, Transcript = transcript, HasTranscript = !string.IsNullOrWhiteSpace(transcript), InspectionAttempted = inspectionAttempted };
             SaveIndex();
+            return true;
         }
     }
     public byte[] ApplySageVolumeGainOnce(IndexedAudioLookup lookup, byte[] pcm, out bool reencoded)

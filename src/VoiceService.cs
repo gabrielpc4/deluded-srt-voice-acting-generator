@@ -29,6 +29,7 @@ internal sealed class VoiceService : IDisposable
     private readonly object gate = new();
     private string? gateOwner;
     public event EventHandler<string>? LogGenerated;
+    public event EventHandler? CacheChanged;
 
     public VoiceService(Settings settings) => this.settings = settings;
 
@@ -37,6 +38,7 @@ internal sealed class VoiceService : IDisposable
     public void ReloadDownloadedCache()
     {
         indexedCache.Reload();
+        CacheChanged?.Invoke(this, EventArgs.Empty);
         LogGenerated?.Invoke(this, "Optional cache updated.");
     }
     public IReadOnlyList<CachedAudioEntry> ListCachedAudio() => indexedCache.ListEntries();
@@ -50,7 +52,11 @@ internal sealed class VoiceService : IDisposable
             conversationRecordedKeys.Remove(key);
         }
         bool removed = indexedCache.RemoveByKey(key);
-        if (removed) LogGenerated?.Invoke(this, "Cached audio deleted.");
+        if (removed)
+        {
+            CacheChanged?.Invoke(this, EventArgs.Empty);
+            LogGenerated?.Invoke(this, "Cached audio deleted.");
+        }
         return removed;
     }
 
@@ -101,6 +107,7 @@ internal sealed class VoiceService : IDisposable
             conversationRecordedKeys.Remove(lookup.Key);
         }
         indexedCache.Remove(lookup, deleteAudioFile: true);
+        CacheChanged?.Invoke(this, EventArgs.Empty);
         await EndConversationAsync();
         return true;
     }
@@ -230,7 +237,7 @@ internal sealed class VoiceService : IDisposable
     {
         RealtimeAudioResult result = await GeneratePcmAsync(speaker, text, token);
         if (result.PcmAudio.Length == 0) return null;
-        indexedCache.Save(lookup, result.PcmAudio, result.Transcript);
+        if (indexedCache.Save(lookup, result.PcmAudio, result.Transcript)) CacheChanged?.Invoke(this, EventArgs.Empty);
         if (settings.OpenAi.PersistentSessions) using (EnterGate("record_generated_context", lookup.Key, null, text)) conversationRecordedKeys.Add(lookup.Key);
         return ApplySageVolumeGainOnce(lookup, speaker, result.PcmAudio);
     }
